@@ -8,12 +8,16 @@ import { monthlyPaymentCents } from "@/lib/installments";
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
 
+type CardOption = { id: number; label: string; last4: string | null };
+
 export default function InstallmentForm({
   remainingCents,
   currentMonth,
+  cards,
 }: {
   remainingCents: number;
   currentMonth: string;
+  cards: CardOption[];
 }) {
   const router = useRouter();
   const [label, setLabel] = useState("");
@@ -23,6 +27,7 @@ export default function InstallmentForm({
   const [months, setMonths] = useState("");
   const [monthlyManual, setMonthlyManual] = useState("");
   const [startMonth, setStartMonth] = useState(currentMonth);
+  const [cardId, setCardId] = useState<number | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -51,6 +56,7 @@ export default function InstallmentForm({
         label,
         months: nMonths,
         startMonth,
+        cardId: cardId || null,
         ...(mode === "calc"
           ? { principal: amount, apr }
           : { monthlyPayment: monthlyManual }),
@@ -67,6 +73,7 @@ export default function InstallmentForm({
     setApr("");
     setMonths("");
     setMonthlyManual("");
+    setCardId("");
     router.refresh();
   }
 
@@ -183,6 +190,27 @@ export default function InstallmentForm({
             value={startMonth}
             onChange={(e) => setStartMonth(e.target.value)}
           />
+        </label>
+      )}
+
+      {cards.length > 0 && (
+        <label className="grid gap-1 text-xs text-ink-soft sm:max-w-[14rem]">
+          Card (optional)
+          <select
+            className={input}
+            value={cardId}
+            onChange={(e) =>
+              setCardId(e.target.value ? Number(e.target.value) : "")
+            }
+          >
+            <option value="">— no card</option>
+            {cards.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+                {c.last4 ? ` ••${c.last4}` : ""}
+              </option>
+            ))}
+          </select>
         </label>
       )}
 

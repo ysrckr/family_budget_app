@@ -34,7 +34,11 @@ export default function AddCategory({
           Close
         </button>
       </div>
-      <CategoryForm effectiveMonth={effectiveMonth} monthLabel={monthLabel} />
+      <CategoryForm
+        effectiveMonth={effectiveMonth}
+        monthLabel={monthLabel}
+        onSaved={() => setOpen(false)}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
-import { installmentPlans } from "@/db/schema";
+import { installmentPlans, cards } from "@/db/schema";
 import {
   formatMoney,
   currentBudgetMonth,
@@ -28,10 +28,12 @@ export default async function InstallmentsPage({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
 
-  const [budgetCents, plans] = await Promise.all([
+  const [budgetCents, plans, cardList] = await Promise.all([
     getInstallmentBudgetCents(),
     db.select().from(installmentPlans).orderBy(asc(installmentPlans.startMonth)),
+    db.select().from(cards).orderBy(asc(cards.label)),
   ]);
+  const cardById = new Map(cardList.map((c) => [c.id, c]));
 
   const active = plans.filter((p) => isActiveIn(p.startMonth, p.months, key));
   const committed = active.reduce((s, p) => s + p.monthlyPaymentCents, 0);
@@ -98,7 +100,15 @@ export default async function InstallmentsPage({
           Plan a purchase
         </h2>
         <div className="rounded-xl border border-line bg-surface p-5 shadow-card">
-          <InstallmentForm remainingCents={left} currentMonth={key} />
+          <InstallmentForm
+            remainingCents={left}
+            currentMonth={key}
+            cards={cardList.map((c) => ({
+              id: c.id,
+              label: c.label,
+              last4: c.last4,
+            }))}
+          />
         </div>
 
         <h2 className="mb-3 mt-8 font-display text-xl font-medium">
@@ -121,6 +131,9 @@ export default async function InstallmentsPage({
                         {remaining} of {p.months} payments left · ends{" "}
                         {monthLabel(planEndMonth(p.startMonth, p.months))}
                         {p.aprBps ? ` · ${(p.aprBps / 100).toFixed(2)}% APR` : ""}
+                        {p.cardId && cardById.get(p.cardId)
+                          ? ` · ${cardById.get(p.cardId)!.label}`
+                          : ""}
                       </div>
                     </div>
                     <div className="shrink-0 text-right">

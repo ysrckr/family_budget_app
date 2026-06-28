@@ -34,7 +34,7 @@ export default function DeleteButton({
     <button
       onClick={onClick}
       disabled={busy}
-      className="text-sm text-ink-soft underline-offset-2 hover:text-brick hover:underline disabled:opacity-50"
+      className="inline-flex min-h-[40px] items-center rounded-md px-3 py-2 text-sm text-ink-soft hover:bg-brick-tint hover:text-brick disabled:opacity-50"
     >
       {busy ? "…" : label}
     </button>

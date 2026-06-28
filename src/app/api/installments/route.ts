@@ -24,6 +24,7 @@ export async function POST(req: Request) {
       ? Math.round(aprNum * 100)
       : null;
   const principalCents = body.principal ? parseMoneyToCents(body.principal) : null;
+  const cardId = body.cardId ? Number(body.cardId) : null;
 
   // Manual monthly payment wins; otherwise compute from amount + months + APR.
   let monthly = body.monthlyPayment ? parseMoneyToCents(body.monthlyPayment) : 0;
@@ -47,6 +48,7 @@ export async function POST(req: Request) {
       months,
       monthlyPaymentCents: monthly,
       startMonth,
+      cardId,
     })
     .returning();
   return NextResponse.json({ plan });

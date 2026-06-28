@@ -22,7 +22,7 @@ export default function ReceiptLink({ receiptKey }: { receiptKey: string }) {
     <button
       onClick={open}
       disabled={busy}
-      className="text-sm text-teal underline-offset-2 hover:underline disabled:opacity-50"
+      className="inline-flex min-h-[40px] items-center rounded-md px-3 py-2 text-sm text-teal hover:bg-teal-tint disabled:opacity-50"
     >
       {busy ? "Opening…" : "Receipt"}
     </button>
