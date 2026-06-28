@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savingsPots } from "@/db/schema";
+import { savingsPots, savingsTxns } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { parseMoneyToCents } from "@/lib/money";
+import { parseMoneyToCents, todayISO } from "@/lib/money";
 
 function normTarget(raw: unknown): number | null {
   if (raw === undefined || raw === null || raw === "") return null;
@@ -25,6 +25,23 @@ export async function POST(req: Request) {
     .insert(savingsPots)
     .values({ name, targetCents: normTarget(body.target) })
     .returning();
+
+  // Optional starting balance: seed it as an out-of-budget opening deposit so
+  // it counts toward the pot balance but never affects "Left to spend".
+  const initial = body.initial ? parseMoneyToCents(body.initial) : 0;
+  if (initial > 0) {
+    await db.insert(savingsTxns).values({
+      potId: row.id,
+      userId: user.id,
+      txnType: "deposit",
+      amountCents: initial,
+      inBudget: false,
+      occurredOn: todayISO(),
+      billingMonth: null,
+      note: "Starting balance",
+    });
+  }
+
   return NextResponse.json({ pot: row });
 }
 
