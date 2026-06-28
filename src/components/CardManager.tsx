@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "./ConfirmProvider";
 
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
@@ -21,6 +22,7 @@ function ordinal(n: number): string {
 
 export default function CardManager({ cards }: { cards: CardOption[] }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [last4, setLast4] = useState("");
@@ -67,7 +69,12 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
   }
 
   async function remove(id: number, name: string) {
-    if (!window.confirm(`Remove "${name}"?`)) return;
+    const ok = await confirm({
+      message: `Remove "${name}"?`,
+      confirmLabel: "Remove",
+      tone: "danger",
+    });
+    if (!ok) return;
     await fetch(`/api/cards?id=${id}`, { method: "DELETE" });
     router.refresh();
   }

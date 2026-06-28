@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "./ConfirmProvider";
 
 /**
  * Generic button that fires a JSON request (POST/PATCH/DELETE) then refreshes.
@@ -25,10 +26,11 @@ export default function ActionButton({
   className?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function onClick() {
-    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    if (confirmMsg && !(await confirm({ message: confirmMsg }))) return;
     setBusy(true);
     await fetch(url, {
       method,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "./ConfirmProvider";
 
 export default function DeleteButton({
   url,
@@ -13,10 +14,16 @@ export default function DeleteButton({
   label?: string;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
   async function onClick() {
-    if (!window.confirm(confirmMsg)) return;
+    const ok = await confirm({
+      message: confirmMsg,
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
     setBusy(true);
     await fetch(url, { method: "DELETE" });
     setBusy(false);
