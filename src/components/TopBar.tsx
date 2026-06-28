@@ -13,6 +13,8 @@ const links = [
   { href: "/budget", label: "Budgets" },
   { href: "/expenses", label: "Spending" },
   { href: "/income", label: "Income" },
+  { href: "/savings", label: "Savings" },
+  { href: "/loans", label: "Loans" },
 ];
 
 export default async function TopBar({ active }: { active: string }) {

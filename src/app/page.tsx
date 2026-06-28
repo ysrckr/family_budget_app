@@ -7,6 +7,8 @@ import {
   salaries,
   incomes,
   expenses,
+  savingsTxns,
+  loanSchedules,
 } from "@/db/schema";
 import {
   formatMoney,
@@ -16,7 +18,11 @@ import {
   shiftMonth,
   isMonthKey,
 } from "@/lib/money";
-import { effectiveBudgets, totalSalary } from "@/lib/recurring";
+import {
+  effectiveBudgets,
+  totalSalary,
+  effectiveLoanPayments,
+} from "@/lib/recurring";
 import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
@@ -36,22 +42,45 @@ export default async function Dashboard({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const { start, end } = monthRange(key);
 
-  const [cats, budgetRows, salaryRows, monthIncomes, monthExpenses] =
-    await Promise.all([
-      db.select().from(categories).orderBy(asc(categories.name)),
-      db.select().from(budgets),
-      db.select().from(salaries),
-      db
-        .select()
-        .from(incomes)
-        .where(and(gte(incomes.occurredOn, start), lt(incomes.occurredOn, end))),
-      db
-        .select()
-        .from(expenses)
-        .where(
-          sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`
-        ),
-    ]);
+  const [
+    cats,
+    budgetRows,
+    salaryRows,
+    monthIncomes,
+    monthExpenses,
+    savedInBudgetRows,
+    savedOutsideRows,
+    loanScheduleRows,
+  ] = await Promise.all([
+    db.select().from(categories).orderBy(asc(categories.name)),
+    db.select().from(budgets),
+    db.select().from(salaries),
+    db
+      .select()
+      .from(incomes)
+      .where(and(gte(incomes.occurredOn, start), lt(incomes.occurredOn, end))),
+    db
+      .select()
+      .from(expenses)
+      .where(
+        sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`
+      ),
+    // In-budget savings deposits billed to this month (reduce Left to spend).
+    db
+      .select({ s: sql<number>`coalesce(sum(${savingsTxns.amountCents}), 0)` })
+      .from(savingsTxns)
+      .where(
+        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = true and coalesce(${savingsTxns.billingMonth}, to_char(${savingsTxns.occurredOn}, 'YYYY-MM')) = ${key}`
+      ),
+    // Out-of-budget savings deposits this month (display only — never in Left).
+    db
+      .select({ s: sql<number>`coalesce(sum(${savingsTxns.amountCents}), 0)` })
+      .from(savingsTxns)
+      .where(
+        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = false and to_char(${savingsTxns.occurredOn}, 'YYYY-MM') = ${key}`
+      ),
+    db.select().from(loanSchedules),
+  ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
   const spentByCat = new Map<number, number>();
@@ -80,9 +109,22 @@ export default async function Dashboard({
   const salaryTotal = totalSalary(salaryRows, key);
   const extraTotal = monthIncomes.reduce((s, i) => s + i.amountCents, 0);
   const totalIncome = salaryTotal + extraTotal;
-  const totalBudget = cats.reduce((s, c) => s + (effBudgets.get(c.id) ?? 0), 0);
+  // Allocated = planned spend only (shared + allowance envelopes). The kind
+  // guard is defensive: it keeps any future non-spend category out of the total.
+  const totalBudget = cats
+    .filter((c) => c.kind === "shared" || c.kind === "allowance")
+    .reduce((s, c) => s + (effBudgets.get(c.id) ?? 0), 0);
   const totalSpent = monthExpenses.reduce((s, e) => s + e.amountCents, 0);
-  const left = totalIncome - totalSpent;
+
+  // Savings & loans context. Only in-budget savings reduce Left to spend;
+  // out-of-budget savings and all loan payments never touch the four totals.
+  const savedInBudget = Number(savedInBudgetRows[0]?.s ?? 0);
+  const savedOutside = Number(savedOutsideRows[0]?.s ?? 0);
+  const loansDue = [
+    ...effectiveLoanPayments(loanScheduleRows, key).values(),
+  ].reduce((s, v) => s + v, 0);
+
+  const left = totalIncome - totalSpent - savedInBudget;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
 
   return (
@@ -116,6 +158,38 @@ export default async function Dashboard({
             accent={left < 0 ? "brick" : "teal"}
           />
         </section>
+
+        {(savedInBudget > 0 || savedOutside > 0 || loansDue > 0) && (
+          <div className="-mt-6 mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-xs text-ink-soft shadow-card">
+            <span>
+              <span className="num font-medium text-ink">
+                {formatMoney(savedInBudget)}
+              </span>{" "}
+              saved from budget
+            </span>
+            <span aria-hidden className="text-line">
+              ·
+            </span>
+            <span>
+              <span className="num font-medium text-ink">
+                {formatMoney(savedOutside)}
+              </span>{" "}
+              saved outside
+            </span>
+            <span aria-hidden className="text-line">
+              ·
+            </span>
+            <span>
+              <span className="num font-medium text-ink">
+                {formatMoney(loansDue)}
+              </span>{" "}
+              loans due
+            </span>
+            <span className="text-ink-soft/70">
+              — outside figures don&rsquo;t affect Left to spend
+            </span>
+          </div>
+        )}
 
         {nothingSetUp ? (
           <EmptyState monthLabel={monthLabel(key)} effectiveMonth={key} />

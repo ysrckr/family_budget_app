@@ -1,0 +1,182 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { todayISO, monthLabel, billingMonthFor } from "@/lib/money";
+
+const input =
+  "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
+
+export default function SavingsForm({
+  pots,
+  cutoffDay = null,
+}: {
+  pots: { id: number; name: string }[];
+  cutoffDay?: number | null;
+}) {
+  const router = useRouter();
+  const [potId, setPotId] = useState(pots[0]?.id ?? 0);
+  const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(todayISO());
+  const [fromBudget, setFromBudget] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  if (pots.length === 0) {
+    return (
+      <p className="rounded-md border border-line bg-paper px-4 py-3 text-sm text-ink-soft">
+        Create a savings pot first, then add money to it.
+      </p>
+    );
+  }
+
+  const inBudget = type === "deposit" && fromBudget;
+  const billing = inBudget ? billingMonthFor(date, cutoffDay) : null;
+  const rolls = billing !== null && billing !== date.slice(0, 7);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    const res = await fetch("/api/savings/txns", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        potId,
+        amount,
+        txnType: type,
+        occurredOn: date,
+        inBudget,
+        note,
+      }),
+    });
+    setBusy(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Could not save.");
+      return;
+    }
+    setAmount("");
+    setNote("");
+    router.refresh();
+  }
+
+  return (
+    <form onSubmit={submit} className="grid gap-3">
+      {/* deposit / withdraw toggle */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => setType("deposit")}
+          className={`rounded-md border px-3 py-2.5 text-sm ${
+            type === "deposit"
+              ? "border-teal bg-teal-tint font-medium text-teal-dark"
+              : "border-line text-ink-soft"
+          }`}
+        >
+          Deposit
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setType("withdrawal");
+            setFromBudget(false);
+          }}
+          className={`rounded-md border px-3 py-2.5 text-sm ${
+            type === "withdrawal"
+              ? "border-teal bg-teal-tint font-medium text-teal-dark"
+              : "border-line text-ink-soft"
+          }`}
+        >
+          Withdraw
+        </button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Pot
+          <select
+            className={input}
+            value={potId}
+            onChange={(e) => setPotId(Number(e.target.value))}
+          >
+            {pots.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Amount
+          <input
+            className={`${input} num`}
+            placeholder="0.00"
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </label>
+
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Date
+          <input
+            className={input}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+        </label>
+
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Note (optional)
+          <input
+            className={input}
+            placeholder="What's it for?"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+      </div>
+
+      {/* From-budget toggle — deposits only */}
+      {type === "deposit" && (
+        <label className="flex items-start gap-3 rounded-md border border-line bg-paper px-3 py-2.5">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-5 w-5 accent-teal"
+            checked={fromBudget}
+            onChange={(e) => setFromBudget(e.target.checked)}
+          />
+          <span className="text-sm">
+            <span className="font-medium">This came from our budget</span>
+            <span className="block text-xs text-ink-soft">
+              Reduces this month&rsquo;s &ldquo;Left to spend&rdquo;. Leave off
+              for money saved from outside the budget.
+            </span>
+          </span>
+        </label>
+      )}
+
+      {rolls && (
+        <p className="rounded-md bg-amber-tint px-3 py-2 text-sm text-amber">
+          After the monthly cutoff — counts toward{" "}
+          <strong>{monthLabel(billing!)}</strong>&rsquo;s budget.
+        </p>
+      )}
+
+      <div>
+        <button
+          disabled={busy}
+          className="rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
+        >
+          {busy ? "Saving…" : type === "deposit" ? "Add to savings" : "Withdraw"}
+        </button>
+        {error && <span className="ml-3 text-sm text-brick">{error}</span>}
+      </div>
+    </form>
+  );
+}

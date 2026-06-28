@@ -68,3 +68,37 @@ export function effectiveBudgets(
   }
   return out;
 }
+
+export type LoanScheduleRow = {
+  loanId: number;
+  amountCents: number;
+  effectiveFrom: string;
+};
+
+/**
+ * The scheduled monthly payment in force for a month (0 if none). Pass a single
+ * loan's schedule rows — same effective-dating rule as salaries/budgets.
+ */
+export function effectiveLoanPayment(
+  rows: LoanScheduleRow[],
+  monthKey: string
+): number {
+  return latest(rows, monthKey)?.amountCents ?? 0;
+}
+
+/** Map of loanId -> effective scheduled payment (cents) for a month. */
+export function effectiveLoanPayments(
+  rows: LoanScheduleRow[],
+  monthKey: string
+): Map<number, number> {
+  const byLoan = new Map<number, LoanScheduleRow[]>();
+  for (const r of rows) {
+    (byLoan.get(r.loanId) ??
+      byLoan.set(r.loanId, []).get(r.loanId)!).push(r);
+  }
+  const out = new Map<number, number>();
+  for (const [loanId, list] of byLoan) {
+    out.set(loanId, latest(list, monthKey)?.amountCents ?? 0);
+  }
+  return out;
+}
