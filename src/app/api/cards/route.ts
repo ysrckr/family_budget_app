@@ -30,6 +30,29 @@ export async function POST(req: Request) {
   return NextResponse.json({ card: row });
 }
 
+export async function PATCH(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const id = Number(body.id);
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  const label = String(body.label ?? "").trim();
+  if (!label) return NextResponse.json({ error: "Name the card." }, { status: 400 });
+
+  const last4 = String(body.last4 ?? "").replace(/\D/g, "").slice(0, 4) || null;
+
+  let cutDay: number | null = null;
+  if (body.cutDay !== undefined && body.cutDay !== "" && body.cutDay !== null) {
+    const n = Math.round(Number(body.cutDay));
+    if (Number.isFinite(n) && n >= 1 && n <= 31) cutDay = n;
+  }
+
+  await db.update(cards).set({ label, last4, cutDay }).where(eq(cards.id, id));
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

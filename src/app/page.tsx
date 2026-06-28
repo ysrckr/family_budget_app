@@ -33,7 +33,7 @@ import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import SpendingChart from "@/components/SpendingChart";
 import SpendingTrend from "@/components/SpendingTrend";
-import RemainingToggle from "@/components/RemainingToggle";
+import EnvelopeCard from "@/components/EnvelopeCard";
 import AddCategory from "@/components/AddCategory";
 
 export const dynamic = "force-dynamic";
@@ -355,52 +355,6 @@ export default async function Dashboard({
         )}
       </main>
     </>
-  );
-}
-
-function EnvelopeCard({
-  title,
-  budgetCents,
-  spentCents,
-  href,
-}: {
-  title: string;
-  budgetCents: number;
-  spentCents: number;
-  href: string;
-}) {
-  const pct =
-    budgetCents > 0
-      ? Math.min((spentCents / budgetCents) * 100, 100)
-      : spentCents > 0
-      ? 100
-      : 0;
-  const over = spentCents > budgetCents && budgetCents > 0;
-  const close = !over && pct >= 80;
-  const fill = over ? "bg-brick" : close ? "bg-amber" : "bg-teal";
-
-  return (
-    <article className="envelope rounded-xl border border-line p-5 shadow-card">
-      <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h3 className="font-display text-lg font-medium">{title}</h3>
-        <span className="num text-sm text-ink-soft">
-          {formatMoney(spentCents)}
-          <span className="text-ink-soft/60"> / {formatMoney(budgetCents)}</span>
-        </span>
-      </div>
-      <div className="meter mb-3">
-        <span className={fill} style={{ width: `${pct}%` }} />
-      </div>
-      <div className="flex items-center justify-between">
-        <RemainingToggle budgetCents={budgetCents} spentCents={spentCents} />
-        <Link
-          href={href}
-          className="text-sm text-teal underline-offset-2 hover:underline"
-        >
-          Add spending →
-        </Link>
-      </div>
-    </article>
   );
 }
 
