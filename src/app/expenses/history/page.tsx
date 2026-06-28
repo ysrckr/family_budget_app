@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { expenses, categories, cards } from "@/db/schema";
 import {
@@ -20,14 +20,33 @@ export const dynamic = "force-dynamic";
 export default async function SpendingHistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; category?: string }>;
 }) {
   const sp = await searchParams;
   const cutoffDay = await getCutoffDay();
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
+  const categoryId = sp.category ? Number(sp.category) : undefined;
+
+  // Optional filter: a single envelope/person's spending.
+  const cat = categoryId
+    ? (
+        await db
+          .select({ name: categories.name, kind: categories.kind, owner: categories.owner })
+          .from(categories)
+          .where(eq(categories.id, categoryId))
+      )[0]
+    : null;
+  const catTitle = cat
+    ? cat.kind === "allowance"
+      ? `${cat.owner ?? "—"}’s allowance`
+      : cat.name
+    : null;
 
   const inMonth = sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`;
+  const where = categoryId
+    ? and(inMonth, eq(expenses.categoryId, categoryId))
+    : inMonth;
 
   const rows = await db
     .select({
@@ -45,10 +64,16 @@ export default async function SpendingHistoryPage({
     .from(expenses)
     .leftJoin(categories, eq(expenses.categoryId, categories.id))
     .leftJoin(cards, eq(expenses.cardId, cards.id))
-    .where(inMonth)
+    .where(where)
     .orderBy(desc(expenses.occurredOn), desc(expenses.id));
 
   const total = rows.reduce((s, r) => s + r.amountCents, 0);
+  const navQuery: Record<string, string> = categoryId
+    ? { category: String(categoryId) }
+    : {};
+  const addHref = categoryId
+    ? `/expenses?category=${categoryId}&month=${key}`
+    : "/expenses";
 
   return (
     <>
@@ -57,20 +82,34 @@ export default async function SpendingHistoryPage({
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-semibold tracking-tight">
-              Spending history
+              {catTitle ?? "Spending history"}
             </h1>
-            <Link
-              href="/expenses"
-              className="mt-1 inline-block text-sm text-teal underline-offset-2 hover:underline"
-            >
-              ← Add spending
-            </Link>
+            {catTitle && (
+              <p className="text-sm text-ink-soft">Spending history</p>
+            )}
+            <div className="mt-1 flex flex-wrap gap-x-4 text-sm">
+              <Link
+                href={addHref}
+                className="text-teal underline-offset-2 hover:underline"
+              >
+                ← Add spending
+              </Link>
+              {catTitle && (
+                <Link
+                  href={`/expenses/history?month=${key}`}
+                  className="text-ink-soft underline-offset-2 hover:underline"
+                >
+                  All spending
+                </Link>
+              )}
+            </div>
           </div>
           <MonthSwitcher
             basePath="/expenses/history"
             label={label}
             prev={shiftMonth(key, -1)}
             next={shiftMonth(key, 1)}
+            query={navQuery}
           />
         </div>
 

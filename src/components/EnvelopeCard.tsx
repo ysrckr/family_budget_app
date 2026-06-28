@@ -59,7 +59,7 @@ export default function EnvelopeCard({
           <RemainingToggle budgetCents={budgetCents} spentCents={spentCents} />
         </span>
         <span className="text-sm text-teal" aria-hidden>
-          Add spending →
+          View spending →
         </span>
       </div>
     </article>
