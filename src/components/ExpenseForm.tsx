@@ -28,6 +28,7 @@ export default function ExpenseForm({
   month,
   cutoffDay = null,
   defaultCategoryId,
+  edit,
   onSaved,
 }: {
   sharedCategories: Cat[];
@@ -38,6 +39,17 @@ export default function ExpenseForm({
   // roll to next month. A card's own cut day overrides it.
   cutoffDay?: number | null;
   defaultCategoryId?: number;
+  // When present, the form edits this expense (PATCH) instead of creating one.
+  edit?: {
+    id: number;
+    categoryId: number;
+    payee: string;
+    amountCents: number;
+    occurredOn: string;
+    paymentMethod: string;
+    cardId: number | null;
+    description: string | null;
+  };
   // Called after a successful save (used by the quick-add sheet to close + toast).
   onSaved?: (info: { billingMonth: string; rolled: boolean }) => void;
 }) {
@@ -47,18 +59,23 @@ export default function ExpenseForm({
   const hasCategories =
     sharedCategories.length + allowanceCategories.length > 0;
   const firstId =
+    edit?.categoryId ??
     defaultCategoryId ??
     sharedCategories[0]?.id ??
     allowanceCategories[0]?.id ??
     0;
 
   const [categoryId, setCategoryId] = useState(firstId);
-  const [payee, setPayee] = useState("");
-  const [amount, setAmount] = useState("");
-  const [day, setDay] = useState(defaultDay(month));
-  const [method, setMethod] = useState<"cash" | "card">("cash");
-  const [cardId, setCardId] = useState<number>(cards[0]?.id ?? 0);
-  const [description, setDescription] = useState("");
+  const [payee, setPayee] = useState(edit?.payee ?? "");
+  const [amount, setAmount] = useState(edit ? String(edit.amountCents / 100) : "");
+  const [day, setDay] = useState(
+    edit ? Number(edit.occurredOn.slice(8, 10)) : defaultDay(month)
+  );
+  const [method, setMethod] = useState<"cash" | "card">(
+    edit?.paymentMethod === "card" ? "card" : "cash"
+  );
+  const [cardId, setCardId] = useState<number>(edit?.cardId ?? cards[0]?.id ?? 0);
+  const [description, setDescription] = useState(edit?.description ?? "");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -111,15 +128,15 @@ export default function ExpenseForm({
       if (file) receiptKey = await uploadReceipt(file);
 
       const res = await fetch("/api/expenses", {
-        method: "POST",
+        method: edit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(edit ? { id: edit.id } : { receiptKey }),
           categoryId,
           payee,
           amount,
           occurredOn,
           description,
-          receiptKey,
           paymentMethod: method,
           cardId: method === "card" ? cardId : null,
         }),
@@ -276,22 +293,24 @@ export default function ExpenseForm({
         />
       </label>
 
-      <label className="grid gap-1 text-xs text-ink-soft sm:col-span-2">
-        Receipt (optional)
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*,application/pdf"
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-teal-tint file:px-3 file:py-1.5 file:text-sm file:text-teal-dark"
-        />
-      </label>
+      {!edit && (
+        <label className="grid gap-1 text-xs text-ink-soft sm:col-span-2">
+          Receipt (optional)
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,application/pdf"
+            className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-teal-tint file:px-3 file:py-1.5 file:text-sm file:text-teal-dark"
+          />
+        </label>
+      )}
 
       <div className="sm:col-span-2">
         <button
           disabled={busy}
           className="rounded-md bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
         >
-          {busy ? "Saving…" : "Record spending"}
+          {busy ? "Saving…" : edit ? "Save changes" : "Record spending"}
         </button>
         {error && <span className="ml-3 text-sm text-brick">{error}</span>}
       </div>

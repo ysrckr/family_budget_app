@@ -14,6 +14,7 @@ import SalaryForm from "@/components/SalaryForm";
 import IncomeForm from "@/components/IncomeForm";
 import CutoffForm from "@/components/CutoffForm";
 import DeleteButton from "@/components/DeleteButton";
+import EditIncomeButton from "@/components/EditIncomeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -161,7 +162,16 @@ export default async function IncomePage() {
                       <div className="num font-medium text-teal-dark">
                         {formatMoney(r.amountCents)}
                       </div>
-                      <div className="mt-1 flex justify-end">
+                      <div className="mt-1 flex items-center justify-end gap-3">
+                        <EditIncomeButton
+                          income={{
+                            id: r.id,
+                            source: r.source,
+                            amountCents: r.amountCents,
+                            occurredOn: r.occurredOn,
+                            note: r.note,
+                          }}
+                        />
                         <DeleteButton
                           url={`/api/incomes?id=${r.id}`}
                           confirm="Delete this income entry?"

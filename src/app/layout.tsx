@@ -41,9 +41,12 @@ export default function RootLayout({
       >
         <NextTopLoader
           color="#0E7C66"
-          height={3}
-          shadow="0 0 8px #0E7C66"
-          showSpinner={false}
+          height={4}
+          shadow="0 0 10px #0E7C66, 0 0 5px #0E7C66"
+          zIndex={2000}
+          showSpinner
+          crawlSpeed={150}
+          speed={250}
         />
         <ConfirmProvider>{children}</ConfirmProvider>
       </body>

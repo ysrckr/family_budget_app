@@ -6,12 +6,28 @@ import { useRouter } from "next/navigation";
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
 
-export default function IncomeForm({ today }: { today: string }) {
+type IncomeEdit = {
+  id: number;
+  source: string;
+  amountCents: number;
+  occurredOn: string;
+  note: string | null;
+};
+
+export default function IncomeForm({
+  today,
+  edit,
+  onSaved,
+}: {
+  today: string;
+  edit?: IncomeEdit;
+  onSaved?: () => void;
+}) {
   const router = useRouter();
-  const [source, setSource] = useState("");
-  const [amount, setAmount] = useState("");
-  const [occurredOn, setOccurredOn] = useState(today);
-  const [note, setNote] = useState("");
+  const [source, setSource] = useState(edit?.source ?? "");
+  const [amount, setAmount] = useState(edit ? String(edit.amountCents / 100) : "");
+  const [occurredOn, setOccurredOn] = useState(edit?.occurredOn ?? today);
+  const [note, setNote] = useState(edit?.note ?? "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -20,14 +36,23 @@ export default function IncomeForm({ today }: { today: string }) {
     setError("");
     setBusy(true);
     const res = await fetch("/api/incomes", {
-      method: "POST",
+      method: edit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ source, amount, occurredOn, note }),
+      body: JSON.stringify(
+        edit
+          ? { id: edit.id, source, amount, occurredOn, note }
+          : { source, amount, occurredOn, note }
+      ),
     });
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error || "Could not add income.");
+      setError(d.error || "Could not save income.");
+      return;
+    }
+    if (edit) {
+      router.refresh();
+      onSaved?.();
       return;
     }
     setSource("");
@@ -62,7 +87,7 @@ export default function IncomeForm({ today }: { today: string }) {
         disabled={busy}
         className="rounded-md bg-teal px-4 py-2 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
       >
-        {busy ? "Adding…" : "Add income"}
+        {busy ? "Saving…" : edit ? "Save changes" : "Add income"}
       </button>
       <input
         className={`${input} sm:col-span-4`}
