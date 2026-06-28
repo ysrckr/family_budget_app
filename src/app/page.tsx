@@ -7,6 +7,9 @@ import {
   salaries,
   incomes,
   expenses,
+  savingsTxns,
+  loanSchedules,
+  fixedCosts,
 } from "@/db/schema";
 import {
   formatMoney,
@@ -16,7 +19,12 @@ import {
   shiftMonth,
   isMonthKey,
 } from "@/lib/money";
-import { effectiveBudgets, totalSalary } from "@/lib/recurring";
+import {
+  effectiveBudgets,
+  totalSalary,
+  totalFixedCosts,
+  effectiveLoanPayments,
+} from "@/lib/recurring";
 import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
@@ -36,22 +44,47 @@ export default async function Dashboard({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const { start, end } = monthRange(key);
 
-  const [cats, budgetRows, salaryRows, monthIncomes, monthExpenses] =
-    await Promise.all([
-      db.select().from(categories).orderBy(asc(categories.name)),
-      db.select().from(budgets),
-      db.select().from(salaries),
-      db
-        .select()
-        .from(incomes)
-        .where(and(gte(incomes.occurredOn, start), lt(incomes.occurredOn, end))),
-      db
-        .select()
-        .from(expenses)
-        .where(
-          sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`
-        ),
-    ]);
+  const [
+    cats,
+    budgetRows,
+    salaryRows,
+    monthIncomes,
+    monthExpenses,
+    savedInBudgetRows,
+    savedOutsideRows,
+    loanScheduleRows,
+    fixedRows,
+  ] = await Promise.all([
+    db.select().from(categories).orderBy(asc(categories.name)),
+    db.select().from(budgets),
+    db.select().from(salaries),
+    db
+      .select()
+      .from(incomes)
+      .where(and(gte(incomes.occurredOn, start), lt(incomes.occurredOn, end))),
+    db
+      .select()
+      .from(expenses)
+      .where(
+        sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`
+      ),
+    // In-budget savings deposits billed to this month (reduce Left to spend).
+    db
+      .select({ s: sql<number>`coalesce(sum(${savingsTxns.amountCents}), 0)` })
+      .from(savingsTxns)
+      .where(
+        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = true and coalesce(${savingsTxns.billingMonth}, to_char(${savingsTxns.occurredOn}, 'YYYY-MM')) = ${key}`
+      ),
+    // Out-of-budget savings deposits this month (display only — never in Left).
+    db
+      .select({ s: sql<number>`coalesce(sum(${savingsTxns.amountCents}), 0)` })
+      .from(savingsTxns)
+      .where(
+        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = false and to_char(${savingsTxns.occurredOn}, 'YYYY-MM') = ${key}`
+      ),
+    db.select().from(loanSchedules),
+    db.select().from(fixedCosts),
+  ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
   const spentByCat = new Map<number, number>();
@@ -80,9 +113,24 @@ export default async function Dashboard({
   const salaryTotal = totalSalary(salaryRows, key);
   const extraTotal = monthIncomes.reduce((s, i) => s + i.amountCents, 0);
   const totalIncome = salaryTotal + extraTotal;
-  const totalBudget = cats.reduce((s, c) => s + (effBudgets.get(c.id) ?? 0), 0);
+  // Allocated = planned spend only (shared + allowance envelopes). The kind
+  // guard is defensive: it keeps any future non-spend category out of the total.
+  const totalBudget = cats
+    .filter((c) => c.kind === "shared" || c.kind === "allowance")
+    .reduce((s, c) => s + (effBudgets.get(c.id) ?? 0), 0);
   const totalSpent = monthExpenses.reduce((s, e) => s + e.amountCents, 0);
-  const left = totalIncome - totalSpent;
+
+  // Savings & loans context. Only in-budget savings reduce Left to spend;
+  // out-of-budget savings and all loan payments never touch the four totals.
+  const savedInBudget = Number(savedInBudgetRows[0]?.s ?? 0);
+  const savedOutside = Number(savedOutsideRows[0]?.s ?? 0);
+  const loansDue = [
+    ...effectiveLoanPayments(loanScheduleRows, key).values(),
+  ].reduce((s, v) => s + v, 0);
+  // Fixed recurring costs (rent, etc.) come straight out of Left to spend.
+  const fixedTotal = totalFixedCosts(fixedRows, key);
+
+  const left = totalIncome - totalSpent - fixedTotal - savedInBudget;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
 
   return (
@@ -116,6 +164,62 @@ export default async function Dashboard({
             accent={left < 0 ? "brick" : "teal"}
           />
         </section>
+
+        {(fixedTotal > 0 ||
+          savedInBudget > 0 ||
+          savedOutside > 0 ||
+          loansDue > 0) && (
+          <div className="-mt-6 mb-8 space-y-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-xs shadow-card">
+            {(fixedTotal > 0 || savedInBudget > 0) && (
+              <p className="text-ink-soft">
+                Taken out of Left:
+                {fixedTotal > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium text-ink">
+                      {formatMoney(fixedTotal)}
+                    </span>{" "}
+                    fixed costs
+                  </>
+                )}
+                {fixedTotal > 0 && savedInBudget > 0 ? " ·" : ""}
+                {savedInBudget > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium text-ink">
+                      {formatMoney(savedInBudget)}
+                    </span>{" "}
+                    saved from budget
+                  </>
+                )}
+              </p>
+            )}
+            {(savedOutside > 0 || loansDue > 0) && (
+              <p className="text-ink-soft/70">
+                Outside budget (doesn&rsquo;t affect Left):
+                {savedOutside > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium">
+                      {formatMoney(savedOutside)}
+                    </span>{" "}
+                    saved outside
+                  </>
+                )}
+                {savedOutside > 0 && loansDue > 0 ? " ·" : ""}
+                {loansDue > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium">
+                      {formatMoney(loansDue)}
+                    </span>{" "}
+                    loans due
+                  </>
+                )}
+              </p>
+            )}
+          </div>
+        )}
 
         {nothingSetUp ? (
           <EmptyState monthLabel={monthLabel(key)} effectiveMonth={key} />

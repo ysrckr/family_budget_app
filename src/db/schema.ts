@@ -5,6 +5,7 @@ import {
   integer,
   timestamp,
   date,
+  boolean,
 } from "drizzle-orm/pg-core";
 
 // Created automatically on first Google sign-in (whitelisted emails only).
@@ -25,6 +26,18 @@ export const users = pgTable("users", {
 export const salaries = pgTable("salaries", {
   id: serial("id").primaryKey(),
   person: text("person").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  effectiveFrom: date("effective_from", { mode: "string" }).notNull(), // "YYYY-MM-01"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Fixed recurring monthly costs (rent, internet, …). Effective-dated like
+// salaries: set once and it applies every month until you add a later row with
+// a new amount. Comes straight out of "Left to spend" — never logged as a
+// manual expense.
+export const fixedCosts = pgTable("fixed_costs", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
   amountCents: integer("amount_cents").notNull(),
   effectiveFrom: date("effective_from", { mode: "string" }).notNull(), // "YYYY-MM-01"
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -111,10 +124,90 @@ export const expenses = pgTable("expenses", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// --- Savings ---------------------------------------------------------------
+// A savings pot/goal. Balance is derived = SUM(signed savings_txns). A null
+// target is an open-ended pot (no progress bar). Soft-closed via archivedAt.
+export const savingsPots = pgTable("savings_pots", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  targetCents: integer("target_cents"), // null = open-ended pot
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// A single movement on a pot. `inBudget` is load-bearing: a true deposit means
+// the money came FROM the household budget and reduces "Left to spend" that
+// month. Withdrawals are always inBudget=false (server-enforced). billingMonth
+// is set (server-side, cutoff-aware) ONLY for in-budget deposits.
+export const savingsTxns = pgTable("savings_txns", {
+  id: serial("id").primaryKey(),
+  potId: integer("pot_id")
+    .references(() => savingsPots.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: integer("user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  txnType: text("txn_type").notNull(), // "deposit" | "withdrawal"
+  amountCents: integer("amount_cents").notNull(), // always positive
+  inBudget: boolean("in_budget").notNull().default(false),
+  occurredOn: date("occurred_on", { mode: "string" }).notNull(),
+  billingMonth: text("billing_month"), // "YYYY-MM", set only for in-budget deposits
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --- Loans -----------------------------------------------------------------
+// A loan paid OUTSIDE the household budget — never queried by Overview totals.
+// originalPrincipal is the payoff-bar denominator; openingBalance is the
+// remaining balance when tracking started (lets you track a mid-life loan).
+export const loans = pgTable("loans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  originalPrincipalCents: integer("original_principal_cents").notNull(),
+  openingBalanceCents: integer("opening_balance_cents").notNull(),
+  startMonth: text("start_month"), // "YYYY-MM", first scheduled payment
+  termMonths: integer("term_months"),
+  archivedAt: timestamp("archived_at"),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// The recurring scheduled monthly payment, effective-dated like salaries.
+export const loanSchedules = pgTable("loan_schedules", {
+  id: serial("id").primaryKey(),
+  loanId: integer("loan_id")
+    .references(() => loans.id, { onDelete: "cascade" })
+    .notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  effectiveFrom: date("effective_from", { mode: "string" }).notNull(), // "YYYY-MM-01"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// An actual payment made against a loan. remaining = openingBalance - SUM(these).
+export const loanPayments = pgTable("loan_payments", {
+  id: serial("id").primaryKey(),
+  loanId: integer("loan_id")
+    .references(() => loans.id, { onDelete: "cascade" })
+    .notNull(),
+  userId: integer("user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  amountCents: integer("amount_cents").notNull(),
+  paidOn: date("paid_on", { mode: "string" }).notNull(),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Salary = typeof salaries.$inferSelect;
+export type FixedCost = typeof fixedCosts.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type Income = typeof incomes.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
+export type SavingsPot = typeof savingsPots.$inferSelect;
+export type SavingsTxn = typeof savingsTxns.$inferSelect;
+export type Loan = typeof loans.$inferSelect;
+export type LoanSchedule = typeof loanSchedules.$inferSelect;
+export type LoanPayment = typeof loanPayments.$inferSelect;

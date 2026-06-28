@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import ConfirmProvider from "@/components/ConfirmProvider";
 
 const display = Fraunces({
   subsets: ["latin"],
@@ -37,7 +38,7 @@ export default function RootLayout({
       <body
         className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased`}
       >
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
       </body>
     </html>
   );
