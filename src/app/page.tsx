@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, gte, lt, asc, sql } from "drizzle-orm";
+import { and, gte, lt, asc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   categories,
@@ -9,6 +9,7 @@ import {
   expenses,
   savingsTxns,
   loanSchedules,
+  loans,
   fixedCosts,
 } from "@/db/schema";
 import {
@@ -29,6 +30,7 @@ import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import SpendingChart from "@/components/SpendingChart";
+import SpendingTrend from "@/components/SpendingTrend";
 import RemainingToggle from "@/components/RemainingToggle";
 import AddCategory from "@/components/AddCategory";
 
@@ -44,6 +46,11 @@ export default async function Dashboard({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const { start, end } = monthRange(key);
 
+  // 6-month trend window ending at the viewed month (oldest → current).
+  const trendKeys = Array.from({ length: 6 }, (_, i) => shiftMonth(key, -(5 - i)));
+  const trendStart = trendKeys[0];
+  const trendStartDate = monthRange(trendStart).start;
+
   const [
     cats,
     budgetRows,
@@ -54,6 +61,8 @@ export default async function Dashboard({
     savedOutsideRows,
     loanScheduleRows,
     fixedRows,
+    trendExpenseRows,
+    trendIncomeRows,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
@@ -82,8 +91,32 @@ export default async function Dashboard({
       .where(
         sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = false and to_char(${savingsTxns.occurredOn}, 'YYYY-MM') = ${key}`
       ),
-    db.select().from(loanSchedules),
+    // Only schedules of active (non-archived) loans count toward "loans due".
+    db
+      .select({
+        loanId: loanSchedules.loanId,
+        amountCents: loanSchedules.amountCents,
+        effectiveFrom: loanSchedules.effectiveFrom,
+      })
+      .from(loanSchedules)
+      .innerJoin(loans, eq(loanSchedules.loanId, loans.id))
+      .where(isNull(loans.archivedAt)),
     db.select().from(fixedCosts),
+    // Last-6-months trend: expenses by billing month, incomes by calendar month.
+    db
+      .select({
+        billingMonth: expenses.billingMonth,
+        occurredOn: expenses.occurredOn,
+        amountCents: expenses.amountCents,
+      })
+      .from(expenses)
+      .where(
+        sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) between ${trendStart} and ${key}`
+      ),
+    db
+      .select({ occurredOn: incomes.occurredOn, amountCents: incomes.amountCents })
+      .from(incomes)
+      .where(and(gte(incomes.occurredOn, trendStartDate), lt(incomes.occurredOn, end))),
   ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
@@ -132,6 +165,29 @@ export default async function Dashboard({
 
   const left = totalIncome - totalSpent - fixedTotal - savedInBudget;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
+
+  // Trend: income (salary + extra) vs spent per billing month, last 6 months.
+  const spentByMonth = new Map<string, number>();
+  for (const e of trendExpenseRows) {
+    const m = e.billingMonth ?? e.occurredOn.slice(0, 7);
+    spentByMonth.set(m, (spentByMonth.get(m) ?? 0) + e.amountCents);
+  }
+  const extraByMonth = new Map<string, number>();
+  for (const i of trendIncomeRows) {
+    const m = i.occurredOn.slice(0, 7);
+    extraByMonth.set(m, (extraByMonth.get(m) ?? 0) + i.amountCents);
+  }
+  const trendPoints = trendKeys.map((m) => {
+    const [yy, mm] = m.split("-").map(Number);
+    return {
+      label: new Date(yy, mm - 1, 1).toLocaleString(undefined, {
+        month: "short",
+      }),
+      income: totalSalary(salaryRows, m) + (extraByMonth.get(m) ?? 0),
+      spent: spentByMonth.get(m) ?? 0,
+    };
+  });
+  const hasTrend = trendPoints.some((p) => p.income > 0 || p.spent > 0);
 
   return (
     <>
@@ -225,6 +281,8 @@ export default async function Dashboard({
           <EmptyState monthLabel={monthLabel(key)} effectiveMonth={key} />
         ) : (
           <div className="grid gap-8">
+            {hasTrend && <SpendingTrend points={trendPoints} />}
+
             {sharedItems.length > 0 && <SpendingChart items={sharedItems} />}
 
             {/* Shared envelopes */}
