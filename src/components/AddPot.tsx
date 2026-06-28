@@ -11,6 +11,7 @@ export default function AddPot() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
+  const [initial, setInitial] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,7 +22,7 @@ export default function AddPot() {
     const res = await fetch("/api/savings/pots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, target }),
+      body: JSON.stringify({ name, target, initial }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -31,6 +32,7 @@ export default function AddPot() {
     }
     setName("");
     setTarget("");
+    setInitial("");
     setOpen(false);
     router.refresh();
   }
@@ -49,7 +51,7 @@ export default function AddPot() {
   return (
     <form
       onSubmit={submit}
-      className="grid gap-3 rounded-lg border border-line bg-paper p-4 sm:grid-cols-[1fr_160px_auto] sm:items-end"
+      className="grid gap-3 rounded-lg border border-line bg-paper p-4"
     >
       <label className="grid gap-1 text-xs text-ink-soft">
         Pot name
@@ -61,16 +63,32 @@ export default function AddPot() {
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <label className="grid gap-1 text-xs text-ink-soft">
-        Goal (optional)
-        <input
-          className={`${input} num`}
-          placeholder="Target"
-          inputMode="decimal"
-          value={target}
-          onChange={(e) => setTarget(e.target.value)}
-        />
-      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Goal (optional)
+          <input
+            className={`${input} num`}
+            placeholder="Target"
+            inputMode="decimal"
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+          />
+        </label>
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Starting balance (optional)
+          <input
+            className={`${input} num`}
+            placeholder="Already saved"
+            inputMode="decimal"
+            value={initial}
+            onChange={(e) => setInitial(e.target.value)}
+          />
+        </label>
+      </div>
+      <p className="text-xs text-ink-soft">
+        Starting balance is money already in this pot — it seeds the balance and
+        won&rsquo;t reduce your budget.
+      </p>
       <div className="flex gap-2">
         <button
           disabled={busy}
@@ -86,7 +104,7 @@ export default function AddPot() {
           Cancel
         </button>
       </div>
-      {error && <p className="text-sm text-brick sm:col-span-3">{error}</p>}
+      {error && <p className="text-sm text-brick">{error}</p>}
     </form>
   );
 }
