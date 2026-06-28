@@ -28,6 +28,7 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
   const [last4, setLast4] = useState("");
   const [hasCut, setHasCut] = useState(false);
   const [cutDay, setCutDay] = useState("25");
+  const [editId, setEditId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -36,6 +37,7 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
     setLast4("");
     setHasCut(false);
     setCutDay("25");
+    setEditId(null);
     setError("");
   }
 
@@ -44,7 +46,17 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
     setAdding(true);
   }
 
-  async function add(e: React.FormEvent) {
+  function startEdit(c: CardOption) {
+    setLabel(c.label);
+    setLast4(c.last4 ?? "");
+    setHasCut(c.cutDay != null);
+    setCutDay(c.cutDay != null ? String(c.cutDay) : "25");
+    setEditId(c.id);
+    setError("");
+    setAdding(true);
+  }
+
+  async function save(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (!label.trim()) {
@@ -52,15 +64,16 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
       return;
     }
     setBusy(true);
+    const payload = { label, last4, cutDay: hasCut ? cutDay : "" };
     const res = await fetch("/api/cards", {
-      method: "POST",
+      method: editId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label, last4, cutDay: hasCut ? cutDay : "" }),
+      body: JSON.stringify(editId ? { id: editId, ...payload } : payload),
     });
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error || "Could not add card.");
+      setError(d.error || "Could not save card.");
       return;
     }
     reset();
@@ -134,6 +147,15 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
                 </div>
               </div>
               <button
+                onClick={() => startEdit(c)}
+                aria-label={`Edit ${c.label}`}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-ink-soft hover:bg-teal-tint hover:text-teal-dark"
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17v3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <button
                 onClick={() => remove(c.id, c.label)}
                 aria-label={`Remove ${c.label}`}
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-md text-ink-soft hover:bg-brick-tint hover:text-brick"
@@ -166,9 +188,9 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
         </div>
       )}
 
-      {/* Add form */}
+      {/* Add / edit form */}
       {adding && (
-        <form onSubmit={add} className="mt-4 grid gap-4 rounded-lg border border-line bg-paper p-4">
+        <form onSubmit={save} className="mt-4 grid gap-4 rounded-lg border border-line bg-paper p-4">
           <label className="grid gap-1.5 text-sm font-medium">
             Card name
             <input
@@ -258,7 +280,7 @@ export default function CardManager({ cards }: { cards: CardOption[] }) {
               disabled={busy}
               className="flex-1 rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
             >
-              {busy ? "Adding…" : "Add card"}
+              {busy ? "Saving…" : editId ? "Save changes" : "Add card"}
             </button>
             <button
               type="button"
