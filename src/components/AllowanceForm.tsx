@@ -36,6 +36,7 @@ export default function AllowanceForm({
       setError(d.error || "Could not set allowance.");
       return;
     }
+    setPerson("");
     setAmount("");
     router.refresh();
   }

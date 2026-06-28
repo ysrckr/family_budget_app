@@ -37,6 +37,8 @@ export default function LoanPaymentForm({
       return;
     }
     setNote("");
+    setAmount(defaultAmount);
+    setPaidOn(todayISO());
     router.refresh();
   }
 
