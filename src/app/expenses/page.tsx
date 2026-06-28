@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { expenses, categories, cards } from "@/db/schema";
 import {
   formatMoney,
-  monthKey,
+  currentBudgetMonth,
   monthLabel,
   shiftMonth,
   isMonthKey,
@@ -24,7 +24,8 @@ export default async function ExpensesPage({
   searchParams: Promise<{ month?: string; category?: string }>;
 }) {
   const sp = await searchParams;
-  const key = isMonthKey(sp.month) ? sp.month! : monthKey();
+  const cutoffDay = await getCutoffDay();
+  const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
   const defaultCategoryId = sp.category ? Number(sp.category) : undefined;
 
@@ -32,7 +33,7 @@ export default async function ExpensesPage({
   // the purchase month for any legacy rows without a billing month).
   const inMonth = sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`;
 
-  const [cats, cardList, rows, cutoffDay] = await Promise.all([
+  const [cats, cardList, rows] = await Promise.all([
     db
       .select({
         id: categories.id,
@@ -61,7 +62,6 @@ export default async function ExpensesPage({
       .leftJoin(cards, eq(expenses.cardId, cards.id))
       .where(inMonth)
       .orderBy(desc(expenses.occurredOn), desc(expenses.id)),
-    getCutoffDay(),
   ]);
 
   const sharedCategories = cats
