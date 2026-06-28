@@ -198,9 +198,26 @@ export const loanPayments = pgTable("loan_payments", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// An installment plan (taksit): a purchase paid over `months` with a fixed
+// monthly payment. Created either from amount + months + APR (the app computes
+// the payment) or entered manually for one already in progress. Its monthly
+// payment is committed against the household installments budget each month from
+// startMonth for `months` months.
+export const installmentPlans = pgTable("installment_plans", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  principalCents: integer("principal_cents"), // null for manually-entered plans
+  aprBps: integer("apr_bps"), // APR in basis points (12.5% = 1250); null if manual
+  months: integer("months").notNull(),
+  monthlyPaymentCents: integer("monthly_payment_cents").notNull(),
+  startMonth: text("start_month").notNull(), // "YYYY-MM" of the first payment
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Salary = typeof salaries.$inferSelect;
 export type FixedCost = typeof fixedCosts.$inferSelect;
+export type InstallmentPlan = typeof installmentPlans.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type Card = typeof cards.$inferSelect;
