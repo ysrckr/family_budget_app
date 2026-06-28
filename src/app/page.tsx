@@ -313,7 +313,7 @@ export default async function Dashboard({
                       title={i.name}
                       budgetCents={i.budgetCents}
                       spentCents={i.spentCents}
-                      href={`/expenses?category=${i.id}&month=${key}`}
+                      href={`/expenses/history?category=${i.id}&month=${key}`}
                     />
                   ))}
                 </div>
@@ -345,7 +345,7 @@ export default async function Dashboard({
                       title={`${i.owner}\u2019s allowance`}
                       budgetCents={i.budgetCents}
                       spentCents={i.spentCents}
-                      href={`/expenses?category=${i.id}&month=${key}`}
+                      href={`/expenses/history?category=${i.id}&month=${key}`}
                     />
                   ))}
                 </div>
