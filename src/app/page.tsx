@@ -10,13 +10,14 @@ import {
 } from "@/db/schema";
 import {
   formatMoney,
-  monthKey,
+  currentBudgetMonth,
   monthRange,
   monthLabel,
   shiftMonth,
   isMonthKey,
 } from "@/lib/money";
 import { effectiveBudgets, totalSalary } from "@/lib/recurring";
+import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import SpendingChart from "@/components/SpendingChart";
@@ -31,7 +32,8 @@ export default async function Dashboard({
   searchParams: Promise<{ month?: string }>;
 }) {
   const sp = await searchParams;
-  const key = isMonthKey(sp.month) ? sp.month! : monthKey();
+  const cutoffDay = await getCutoffDay();
+  const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const { start, end } = monthRange(key);
 
   const [cats, budgetRows, salaryRows, monthIncomes, monthExpenses] =

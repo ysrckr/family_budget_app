@@ -3,12 +3,13 @@ import { db } from "@/db";
 import { categories, budgets, salaries } from "@/db/schema";
 import {
   formatMoney,
-  monthKey,
+  currentBudgetMonth,
   monthLabel,
   shiftMonth,
   isMonthKey,
 } from "@/lib/money";
 import { effectiveBudgets } from "@/lib/recurring";
+import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import { CategoryForm, BudgetEditor } from "@/components/CategoryForm";
@@ -23,7 +24,8 @@ export default async function BudgetPage({
   searchParams: Promise<{ month?: string }>;
 }) {
   const sp = await searchParams;
-  const key = isMonthKey(sp.month) ? sp.month! : monthKey();
+  const cutoffDay = await getCutoffDay();
+  const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
 
   const [cats, budgetRows, salaryRows] = await Promise.all([

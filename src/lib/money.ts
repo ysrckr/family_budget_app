@@ -71,6 +71,16 @@ export function isMonthKey(v: unknown): v is string {
 }
 
 /**
+ * The budget month we're currently "living in" — the month a purchase made
+ * today would count toward. Once today is past the household cutoff day, this
+ * is next calendar month, so pages default there. Falls back to the calendar
+ * month when no cutoff is set.
+ */
+export function currentBudgetMonth(cutoffDay: number | null | undefined): string {
+  return billingMonthFor(todayISO(), cutoffDay);
+}
+
+/**
  * The budget ("billing") month a purchase counts toward.
  * - No cut day (cash/debit): the month of the purchase date.
  * - With a cut day (credit card): purchases AFTER the cut day roll to next month;
