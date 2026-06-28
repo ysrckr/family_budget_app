@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { expenses, categories, cards } from "@/db/schema";
 import {
@@ -14,6 +14,7 @@ import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import DeleteButton from "@/components/DeleteButton";
 import ReceiptLink from "@/components/ReceiptLink";
+import EditExpenseButton from "@/components/EditExpenseButton";
 
 export const dynamic = "force-dynamic";
 
@@ -28,44 +29,57 @@ export default async function SpendingHistoryPage({
   const label = monthLabel(key);
   const categoryId = sp.category ? Number(sp.category) : undefined;
 
-  // Optional filter: a single envelope/person's spending.
-  const cat = categoryId
-    ? (
-        await db
-          .select({ name: categories.name, kind: categories.kind, owner: categories.owner })
-          .from(categories)
-          .where(eq(categories.id, categoryId))
-      )[0]
-    : null;
-  const catTitle = cat
-    ? cat.kind === "allowance"
-      ? `${cat.owner ?? "—"}’s allowance`
-      : cat.name
-    : null;
-
   const inMonth = sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`;
   const where = categoryId
     ? and(inMonth, eq(expenses.categoryId, categoryId))
     : inMonth;
 
-  const rows = await db
-    .select({
-      id: expenses.id,
-      payee: expenses.payee,
-      amountCents: expenses.amountCents,
-      description: expenses.description,
-      occurredOn: expenses.occurredOn,
-      receiptKey: expenses.receiptKey,
-      paymentMethod: expenses.paymentMethod,
-      category: categories.name,
-      cardLabel: cards.label,
-      cardLast4: cards.last4,
-    })
-    .from(expenses)
-    .leftJoin(categories, eq(expenses.categoryId, categories.id))
-    .leftJoin(cards, eq(expenses.cardId, cards.id))
-    .where(where)
-    .orderBy(desc(expenses.occurredOn), desc(expenses.id));
+  const [rows, cats, cardList] = await Promise.all([
+    db
+      .select({
+        id: expenses.id,
+        categoryId: expenses.categoryId,
+        payee: expenses.payee,
+        amountCents: expenses.amountCents,
+        description: expenses.description,
+        occurredOn: expenses.occurredOn,
+        receiptKey: expenses.receiptKey,
+        paymentMethod: expenses.paymentMethod,
+        cardId: expenses.cardId,
+        category: categories.name,
+        cardLabel: cards.label,
+        cardLast4: cards.last4,
+      })
+      .from(expenses)
+      .leftJoin(categories, eq(expenses.categoryId, categories.id))
+      .leftJoin(cards, eq(expenses.cardId, cards.id))
+      .where(where)
+      .orderBy(desc(expenses.occurredOn), desc(expenses.id)),
+    db
+      .select({
+        id: categories.id,
+        name: categories.name,
+        kind: categories.kind,
+        owner: categories.owner,
+      })
+      .from(categories)
+      .orderBy(asc(categories.name)),
+    db.select().from(cards).orderBy(asc(cards.label)),
+  ]);
+
+  // Optional filter: a single envelope/person's spending (derived from cats).
+  const cat = categoryId ? cats.find((c) => c.id === categoryId) : null;
+  const catTitle = cat
+    ? cat.kind === "allowance"
+      ? `${cat.owner ?? "—"}’s allowance`
+      : cat.name
+    : null;
+  const sharedCategories = cats
+    .filter((c) => c.kind === "shared")
+    .map((c) => ({ id: c.id, name: c.name }));
+  const allowanceCategories = cats
+    .filter((c) => c.kind === "allowance")
+    .map((c) => ({ id: c.id, owner: c.owner ?? "—" }));
 
   const total = rows.reduce((s, r) => s + r.amountCents, 0);
   const navQuery: Record<string, string> = categoryId
@@ -163,6 +177,22 @@ export default async function SpendingHistoryPage({
                           {r.receiptKey && (
                             <ReceiptLink receiptKey={r.receiptKey} />
                           )}
+                          <EditExpenseButton
+                            expense={{
+                              id: r.id,
+                              categoryId: r.categoryId,
+                              payee: r.payee,
+                              amountCents: r.amountCents,
+                              occurredOn: r.occurredOn,
+                              paymentMethod: r.paymentMethod,
+                              cardId: r.cardId,
+                              description: r.description,
+                            }}
+                            sharedCategories={sharedCategories}
+                            allowanceCategories={allowanceCategories}
+                            cards={cardList}
+                            cutoffDay={cutoffDay}
+                          />
                           <DeleteButton
                             url={`/api/expenses?id=${r.id}`}
                             confirm="Delete this spending entry?"
