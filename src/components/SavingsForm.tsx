@@ -7,6 +7,7 @@ import {
   monthLabel,
   billingMonthFor,
   parseMoneyToCents,
+  APP_CURRENCY,
 } from "@/lib/money";
 
 const input =
@@ -16,7 +17,7 @@ export default function SavingsForm({
   pots,
   cutoffDay = null,
 }: {
-  pots: { id: number; name: string }[];
+  pots: { id: number; name: string; currency: string }[];
   cutoffDay?: number | null;
 }) {
   const router = useRouter();
@@ -37,7 +38,11 @@ export default function SavingsForm({
     );
   }
 
-  const inBudget = type === "deposit" && fromBudget;
+  const potCurrency =
+    pots.find((p) => p.id === potId)?.currency ?? APP_CURRENCY;
+  const isForeign = potCurrency !== APP_CURRENCY;
+  // "From budget" only makes sense for an app-currency pot (no FX).
+  const inBudget = type === "deposit" && fromBudget && !isForeign;
   const billing = inBudget ? billingMonthFor(date, cutoffDay) : null;
   const rolls = billing !== null && billing !== date.slice(0, 7);
 
@@ -111,18 +116,22 @@ export default function SavingsForm({
           <select
             className={input}
             value={potId}
-            onChange={(e) => setPotId(Number(e.target.value))}
+            onChange={(e) => {
+              setPotId(Number(e.target.value));
+              setFromBudget(false);
+            }}
           >
             {pots.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
+                {p.currency !== APP_CURRENCY ? ` (${p.currency})` : ""}
               </option>
             ))}
           </select>
         </label>
 
         <label className="grid gap-1 text-xs text-ink-soft">
-          Amount
+          Amount{isForeign ? ` (${potCurrency})` : ""}
           <input
             className={`${input} num`}
             placeholder="0.00"
@@ -153,8 +162,8 @@ export default function SavingsForm({
         </label>
       </div>
 
-      {/* From-budget toggle — deposits only */}
-      {type === "deposit" && (
+      {/* From-budget toggle — deposits into an app-currency pot only */}
+      {type === "deposit" && !isForeign && (
         <label className="flex items-start gap-3 rounded-md border border-line bg-paper px-3 py-2.5">
           <input
             type="checkbox"

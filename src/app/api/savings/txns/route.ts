@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { savingsTxns } from "@/db/schema";
+import { savingsTxns, savingsPots } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { parseMoneyToCents, billingMonthFor } from "@/lib/money";
+import { parseMoneyToCents, billingMonthFor, APP_CURRENCY } from "@/lib/money";
 import { getCutoffDay } from "@/lib/settings";
 
 export async function POST(req: Request) {
@@ -17,17 +17,23 @@ export async function POST(req: Request) {
   const occurredOn = String(body.occurredOn ?? "").slice(0, 10);
   const note = body.note ? String(body.note).trim() : null;
 
-  // "From budget" only applies to deposits — a withdrawal can never put money
-  // back into the budget, so it is always out-of-budget (enforced here, not by
-  // the client).
-  const inBudget = txnType === "deposit" && body.inBudget === true;
-
   if (!potId || amountCents <= 0 || !occurredOn) {
     return NextResponse.json(
       { error: "Pick a pot and add an amount and date." },
       { status: 400 }
     );
   }
+
+  // "From budget" only applies to deposits into an app-currency pot — a
+  // withdrawal can never put money back into the budget, and a foreign-currency
+  // pot is tracked separately (no FX), so both are forced out-of-budget here.
+  const [pot] = await db
+    .select({ currency: savingsPots.currency })
+    .from(savingsPots)
+    .where(eq(savingsPots.id, potId));
+  const sameCurrency = (pot?.currency ?? APP_CURRENCY) === APP_CURRENCY;
+  const inBudget =
+    txnType === "deposit" && body.inBudget === true && sameCurrency;
 
   // Invariant: in-budget deposits get a cutoff-aware billing month (so they
   // bucket exactly like cash spending); everything else has billingMonth = null

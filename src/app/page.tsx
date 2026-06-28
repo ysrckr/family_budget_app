@@ -20,6 +20,7 @@ import {
   monthLabel,
   shiftMonth,
   isMonthKey,
+  APP_CURRENCY,
 } from "@/lib/money";
 import {
   effectiveBudgets,
@@ -82,18 +83,19 @@ export default async function Dashboard({
         sql`coalesce(${expenses.billingMonth}, to_char(${expenses.occurredOn}, 'YYYY-MM')) = ${key}`
       ),
     // In-budget savings deposits billed to this month (reduce Left to spend).
+    // Restricted to app-currency pots so foreign-currency cents never mix in.
     db
       .select({ s: sql<number>`coalesce(sum(${savingsTxns.amountCents}), 0)` })
       .from(savingsTxns)
       .where(
-        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = true and coalesce(${savingsTxns.billingMonth}, to_char(${savingsTxns.occurredOn}, 'YYYY-MM')) = ${key}`
+        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = true and coalesce(${savingsTxns.billingMonth}, to_char(${savingsTxns.occurredOn}, 'YYYY-MM')) = ${key} and ${savingsTxns.potId} in (select id from savings_pots where currency = ${APP_CURRENCY})`
       ),
     // Out-of-budget savings deposits this month (display only — never in Left).
     db
       .select({ s: sql<number>`coalesce(sum(${savingsTxns.amountCents}), 0)` })
       .from(savingsTxns)
       .where(
-        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = false and to_char(${savingsTxns.occurredOn}, 'YYYY-MM') = ${key}`
+        sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = false and to_char(${savingsTxns.occurredOn}, 'YYYY-MM') = ${key} and ${savingsTxns.potId} in (select id from savings_pots where currency = ${APP_CURRENCY})`
       ),
     // Only schedules of active (non-archived) loans count toward "loans due".
     db

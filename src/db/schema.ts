@@ -131,6 +131,9 @@ export const savingsPots = pgTable("savings_pots", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   targetCents: integer("target_cents"), // null = open-ended pot
+  // ISO currency for this pot (e.g. THB, USD). Foreign-currency pots (≠ the app
+  // currency) are tracked in their own currency and stay out of the budget math.
+  currency: text("currency").notNull().default("THB"),
   archivedAt: timestamp("archived_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
