@@ -7,6 +7,7 @@ import { getCutoffDay } from "@/lib/settings";
 import LogoutButton from "./LogoutButton";
 import QuickAddSpending from "./QuickAddSpending";
 import BudgetMark from "./BudgetMark";
+import MobileNav from "./MobileNav";
 
 const links = [
   { href: "/", label: "Overview" },
@@ -68,30 +69,15 @@ export default async function TopBar({ active }: { active: string }) {
           </nav>
 
           <div className="ml-auto flex items-center gap-3">
-            {user && (
-              <span className="hidden text-sm text-ink-soft sm:inline">
-                {user.name}
-              </span>
-            )}
-            <LogoutButton />
+            <div className="hidden items-center gap-3 sm:flex">
+              {user && (
+                <span className="text-sm text-ink-soft">{user.name}</span>
+              )}
+              <LogoutButton />
+            </div>
+            <MobileNav links={links} active={active} userName={user?.name ?? null} />
           </div>
         </div>
-
-        <nav className="flex gap-1 overflow-x-auto px-3 pb-2 sm:hidden">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm ${
-                active === l.href
-                  ? "bg-teal-tint text-teal-dark"
-                  : "text-ink-soft"
-              }`}
-            >
-              {l.label}
-            </Link>
-          ))}
-        </nav>
       </header>
 
       <QuickAddSpending
