@@ -211,6 +211,9 @@ export const installmentPlans = pgTable("installment_plans", {
   months: integer("months").notNull(),
   monthlyPaymentCents: integer("monthly_payment_cents").notNull(),
   startMonth: text("start_month").notNull(), // "YYYY-MM" of the first payment
+  cardId: integer("card_id").references(() => cards.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

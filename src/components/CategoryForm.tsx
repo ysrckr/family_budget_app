@@ -10,9 +10,11 @@ const input =
 export function CategoryForm({
   effectiveMonth,
   monthLabel,
+  onSaved,
 }: {
   effectiveMonth: string;
   monthLabel: string;
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -38,6 +40,7 @@ export function CategoryForm({
     setName("");
     setBudget("");
     router.refresh();
+    onSaved?.();
   }
 
   return (
