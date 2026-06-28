@@ -16,18 +16,32 @@ const input =
 export default function SavingsForm({
   pots,
   cutoffDay = null,
+  edit,
+  onSaved,
 }: {
   pots: { id: number; name: string; currency: string }[];
   cutoffDay?: number | null;
+  edit?: {
+    id: number;
+    potId: number;
+    txnType: string;
+    amountCents: number;
+    occurredOn: string;
+    inBudget: boolean;
+    note: string | null;
+  };
+  onSaved?: () => void;
 }) {
   const router = useRouter();
-  const [potId, setPotId] = useState(pots[0]?.id ?? 0);
-  const [type, setType] = useState<"deposit" | "withdrawal">("deposit");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(todayISO());
-  const [fromBudget, setFromBudget] = useState(false);
+  const [potId, setPotId] = useState(edit?.potId ?? pots[0]?.id ?? 0);
+  const [type, setType] = useState<"deposit" | "withdrawal">(
+    edit?.txnType === "withdrawal" ? "withdrawal" : "deposit"
+  );
+  const [amount, setAmount] = useState(edit ? String(edit.amountCents / 100) : "");
+  const [date, setDate] = useState(edit?.occurredOn ?? todayISO());
+  const [fromBudget, setFromBudget] = useState(edit?.inBudget ?? false);
   const [recurring, setRecurring] = useState(false);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(edit?.note ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -55,8 +69,22 @@ export default function SavingsForm({
       return;
     }
     setBusy(true);
-    const isRecurring = type === "deposit" && recurring;
-    const res = isRecurring
+    const isRecurring = !edit && type === "deposit" && recurring;
+    const res = edit
+      ? await fetch("/api/savings/txns", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: edit.id,
+            potId,
+            amount,
+            txnType: type,
+            occurredOn: date,
+            inBudget,
+            note,
+          }),
+        })
+      : isRecurring
       ? await fetch("/api/savings/recurring", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -83,6 +111,11 @@ export default function SavingsForm({
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       setError(d.error || "Could not save.");
+      return;
+    }
+    if (edit) {
+      router.refresh();
+      onSaved?.();
       return;
     }
     setAmount("");
@@ -195,8 +228,8 @@ export default function SavingsForm({
         </label>
       )}
 
-      {/* Recurring toggle — deposits only */}
-      {type === "deposit" && (
+      {/* Recurring toggle — deposits only (not when editing an existing entry) */}
+      {!edit && type === "deposit" && (
         <label className="flex items-start gap-3 rounded-md border border-line bg-paper px-3 py-2.5">
           <input
             type="checkbox"
@@ -228,6 +261,8 @@ export default function SavingsForm({
         >
           {busy
             ? "Saving…"
+            : edit
+            ? "Save changes"
             : type === "withdrawal"
             ? "Withdraw"
             : recurring

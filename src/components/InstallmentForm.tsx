@@ -10,24 +10,47 @@ const input =
 
 type CardOption = { id: number; label: string; last4: string | null };
 
+type InstallmentEdit = {
+  id: number;
+  label: string;
+  principalCents: number | null;
+  aprBps: number | null;
+  months: number;
+  monthlyPaymentCents: number;
+  startMonth: string;
+  cardId: number | null;
+};
+
 export default function InstallmentForm({
   remainingCents,
   currentMonth,
   cards,
+  edit,
+  onSaved,
 }: {
   remainingCents: number;
   currentMonth: string;
   cards: CardOption[];
+  edit?: InstallmentEdit;
+  onSaved?: () => void;
 }) {
   const router = useRouter();
-  const [label, setLabel] = useState("");
-  const [mode, setMode] = useState<"calc" | "manual">("calc");
-  const [amount, setAmount] = useState("");
-  const [apr, setApr] = useState("");
-  const [months, setMonths] = useState("");
-  const [monthlyManual, setMonthlyManual] = useState("");
-  const [startMonth, setStartMonth] = useState(currentMonth);
-  const [cardId, setCardId] = useState<number | "">("");
+  const [label, setLabel] = useState(edit?.label ?? "");
+  const [mode, setMode] = useState<"calc" | "manual">(
+    edit && edit.principalCents == null ? "manual" : "calc"
+  );
+  const [amount, setAmount] = useState(
+    edit?.principalCents != null ? String(edit.principalCents / 100) : ""
+  );
+  const [apr, setApr] = useState(
+    edit?.aprBps != null ? String(edit.aprBps / 100) : ""
+  );
+  const [months, setMonths] = useState(edit ? String(edit.months) : "");
+  const [monthlyManual, setMonthlyManual] = useState(
+    edit && edit.principalCents == null ? String(edit.monthlyPaymentCents / 100) : ""
+  );
+  const [startMonth, setStartMonth] = useState(edit?.startMonth ?? currentMonth);
+  const [cardId, setCardId] = useState<number | "">(edit?.cardId ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -50,9 +73,10 @@ export default function InstallmentForm({
 
     setBusy(true);
     const res = await fetch("/api/installments", {
-      method: "POST",
+      method: edit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        ...(edit ? { id: edit.id } : {}),
         label,
         months: nMonths,
         startMonth,
@@ -66,6 +90,11 @@ export default function InstallmentForm({
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
       setError(d.error || "Could not save.");
+      return;
+    }
+    if (edit) {
+      router.refresh();
+      onSaved?.();
       return;
     }
     setLabel("");
@@ -242,7 +271,7 @@ export default function InstallmentForm({
           disabled={busy}
           className="rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
         >
-          {busy ? "Saving…" : "Add installment"}
+          {busy ? "Saving…" : edit ? "Save changes" : "Add installment"}
         </button>
         {error && <span className="ml-3 text-sm text-brick">{error}</span>}
       </div>
