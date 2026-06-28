@@ -1,7 +1,12 @@
 import { desc, eq, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { incomes, salaries, users } from "@/db/schema";
-import { formatMoney, todayISO, monthKey, monthLabel } from "@/lib/money";
+import {
+  formatMoney,
+  todayISO,
+  currentBudgetMonth,
+  monthLabel,
+} from "@/lib/money";
 import { effectiveSalaries } from "@/lib/recurring";
 import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
@@ -13,9 +18,10 @@ import DeleteButton from "@/components/DeleteButton";
 export const dynamic = "force-dynamic";
 
 export default async function IncomePage() {
-  const key = monthKey();
+  const cutoffDay = await getCutoffDay();
+  const key = currentBudgetMonth(cutoffDay);
 
-  const [salaryRows, extra, cutoffDay] = await Promise.all([
+  const [salaryRows, extra] = await Promise.all([
     db
       .select()
       .from(salaries)
@@ -33,7 +39,6 @@ export default async function IncomePage() {
       .leftJoin(users, eq(incomes.userId, users.id))
       .orderBy(desc(incomes.occurredOn), desc(incomes.id))
       .limit(200),
-    getCutoffDay(),
   ]);
 
   const current = effectiveSalaries(salaryRows, key);
