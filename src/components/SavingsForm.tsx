@@ -26,6 +26,7 @@ export default function SavingsForm({
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayISO());
   const [fromBudget, setFromBudget] = useState(false);
+  const [recurring, setRecurring] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -54,18 +55,30 @@ export default function SavingsForm({
       return;
     }
     setBusy(true);
-    const res = await fetch("/api/savings/txns", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        potId,
-        amount,
-        txnType: type,
-        occurredOn: date,
-        inBudget,
-        note,
-      }),
-    });
+    const isRecurring = type === "deposit" && recurring;
+    const res = isRecurring
+      ? await fetch("/api/savings/recurring", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            potId,
+            amount,
+            inBudget,
+            startMonth: date.slice(0, 7),
+          }),
+        })
+      : await fetch("/api/savings/txns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            potId,
+            amount,
+            txnType: type,
+            occurredOn: date,
+            inBudget,
+            note,
+          }),
+        });
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
@@ -76,6 +89,7 @@ export default function SavingsForm({
     setNote("");
     setDate(todayISO());
     setFromBudget(false);
+    setRecurring(false);
     router.refresh();
   }
 
@@ -181,7 +195,26 @@ export default function SavingsForm({
         </label>
       )}
 
-      {rolls && (
+      {/* Recurring toggle — deposits only */}
+      {type === "deposit" && (
+        <label className="flex items-start gap-3 rounded-md border border-line bg-paper px-3 py-2.5">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-5 w-5 accent-teal"
+            checked={recurring}
+            onChange={(e) => setRecurring(e.target.checked)}
+          />
+          <span className="text-sm">
+            <span className="font-medium">Repeat every month</span>
+            <span className="block text-xs text-ink-soft">
+              Automatically adds this amount to the pot each month
+              {inBudget ? " and out of “Left to spend”" : ""}, until you stop it.
+            </span>
+          </span>
+        </label>
+      )}
+
+      {rolls && !recurring && (
         <p className="rounded-md bg-amber-tint px-3 py-2 text-sm text-amber">
           After the monthly cutoff — counts toward{" "}
           <strong>{monthLabel(billing!)}</strong>&rsquo;s budget.
@@ -193,7 +226,13 @@ export default function SavingsForm({
           disabled={busy}
           className="rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
         >
-          {busy ? "Saving…" : type === "deposit" ? "Add to savings" : "Withdraw"}
+          {busy
+            ? "Saving…"
+            : type === "withdrawal"
+            ? "Withdraw"
+            : recurring
+            ? "Start monthly saving"
+            : "Add to savings"}
         </button>
         {error && <span className="ml-3 text-sm text-brick">{error}</span>}
       </div>
