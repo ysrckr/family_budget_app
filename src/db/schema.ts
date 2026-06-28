@@ -159,6 +159,20 @@ export const savingsTxns = pgTable("savings_txns", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// A standing monthly contribution into a pot (set once, repeats every month
+// from startMonth). No materialized rows — its amount is added on read. An
+// in-budget recurring saving reduces "Left to spend" each month.
+export const recurringSavings = pgTable("recurring_savings", {
+  id: serial("id").primaryKey(),
+  potId: integer("pot_id")
+    .references(() => savingsPots.id, { onDelete: "cascade" })
+    .notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  inBudget: boolean("in_budget").notNull().default(false),
+  startMonth: text("start_month").notNull(), // "YYYY-MM"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- Loans -----------------------------------------------------------------
 // A loan paid OUTSIDE the household budget — never queried by Overview totals.
 // originalPrincipal is the payoff-bar denominator; openingBalance is the
@@ -231,6 +245,7 @@ export type Income = typeof incomes.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type SavingsPot = typeof savingsPots.$inferSelect;
 export type SavingsTxn = typeof savingsTxns.$inferSelect;
+export type RecurringSaving = typeof recurringSavings.$inferSelect;
 export type Loan = typeof loans.$inferSelect;
 export type LoanSchedule = typeof loanSchedules.$inferSelect;
 export type LoanPayment = typeof loanPayments.$inferSelect;

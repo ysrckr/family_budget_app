@@ -1,6 +1,6 @@
 import { asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { savingsPots, savingsTxns } from "@/db/schema";
+import { savingsPots, savingsTxns, recurringSavings } from "@/db/schema";
 import {
   formatMoney,
   currentBudgetMonth,
@@ -9,7 +9,12 @@ import {
   isMonthKey,
   APP_CURRENCY,
 } from "@/lib/money";
-import { potBalance, goalProgress, depositSplit } from "@/lib/savings";
+import {
+  goalProgress,
+  depositSplit,
+  recurringCount,
+  recurringActiveIn,
+} from "@/lib/savings";
 import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
@@ -49,7 +54,9 @@ export default async function SavingsPage({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
 
-  const [pots, txns] = await Promise.all([
+  const nowMonth = currentBudgetMonth(cutoffDay);
+
+  const [pots, txns, recurring] = await Promise.all([
     db
       .select()
       .from(savingsPots)
@@ -72,9 +79,23 @@ export default async function SavingsPage({
       .leftJoin(savingsPots, eq(savingsTxns.potId, savingsPots.id))
       .orderBy(desc(savingsTxns.occurredOn), desc(savingsTxns.id))
       .limit(500),
+    db
+      .select({
+        id: recurringSavings.id,
+        potId: recurringSavings.potId,
+        potName: savingsPots.name,
+        potCurrency: savingsPots.currency,
+        amountCents: recurringSavings.amountCents,
+        inBudget: recurringSavings.inBudget,
+        startMonth: recurringSavings.startMonth,
+      })
+      .from(recurringSavings)
+      .leftJoin(savingsPots, eq(recurringSavings.potId, savingsPots.id))
+      .orderBy(asc(savingsPots.name)),
   ]);
 
-  // Lifetime balance per pot (all txns).
+  // Lifetime balance per pot: actual txns + accrued recurring contributions
+  // through the current month.
   const balanceByPot = new Map<number, number>();
   for (const t of txns) {
     balanceByPot.set(
@@ -82,6 +103,10 @@ export default async function SavingsPage({
       (balanceByPot.get(t.potId) ?? 0) +
         (t.txnType === "withdrawal" ? -t.amountCents : t.amountCents)
     );
+  }
+  for (const r of recurring) {
+    const accrued = r.amountCents * recurringCount(r.startMonth, nowMonth);
+    if (accrued) balanceByPot.set(r.potId, (balanceByPot.get(r.potId) ?? 0) + accrued);
   }
   // Total saved grouped by currency (no FX conversion).
   const savedByCurrency = new Map<string, number>();
@@ -101,7 +126,16 @@ export default async function SavingsPage({
   const appMonthTxns = monthTxns.filter(
     (t) => (t.potCurrency ?? APP_CURRENCY) === APP_CURRENCY
   );
-  const { fromBudget, outside } = depositSplit(appMonthTxns);
+  const split = depositSplit(appMonthTxns);
+  // Add recurring app-currency contributions active in the viewed month.
+  let fromBudget = split.fromBudget;
+  let outside = split.outside;
+  for (const r of recurring) {
+    if ((r.potCurrency ?? APP_CURRENCY) !== APP_CURRENCY) continue;
+    if (!recurringActiveIn(r.startMonth, key)) continue;
+    if (r.inBudget) fromBudget += r.amountCents;
+    else outside += r.amountCents;
+  }
 
   return (
     <>
@@ -227,6 +261,39 @@ export default async function SavingsPage({
               );
             })}
           </div>
+        )}
+
+        {/* Recurring monthly contributions */}
+        {recurring.length > 0 && (
+          <>
+            <h2 className="mb-3 mt-8 font-display text-xl font-medium">
+              Recurring
+            </h2>
+            <div className="rounded-xl border border-line bg-surface shadow-card">
+              <ul className="divide-y divide-line/60">
+                {recurring.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{r.potName ?? "—"}</div>
+                      <div className="mt-0.5 text-xs text-ink-soft">
+                        {r.inBudget ? "From budget" : "Outside"} · since{" "}
+                        {monthLabel(r.startMonth)}
+                      </div>
+                    </div>
+                    <span className="num shrink-0 font-medium text-teal-dark">
+                      {formatMoney(r.amountCents, r.potCurrency ?? APP_CURRENCY)}
+                      <span className="text-ink-soft">/mo</span>
+                    </span>
+                    <DeleteButton
+                      url={`/api/savings/recurring?id=${r.id}`}
+                      confirm="Stop this monthly saving?"
+                      label="Stop"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
         )}
 
         {/* This month's ledger */}

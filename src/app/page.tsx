@@ -8,6 +8,8 @@ import {
   incomes,
   expenses,
   savingsTxns,
+  savingsPots,
+  recurringSavings,
   loanSchedules,
   loans,
   fixedCosts,
@@ -68,6 +70,7 @@ export default async function Dashboard({
     trendIncomeRows,
     installmentRows,
     installmentBudgetCents,
+    recurringSavingRows,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
@@ -125,6 +128,16 @@ export default async function Dashboard({
       .where(and(gte(incomes.occurredOn, trendStartDate), lt(incomes.occurredOn, end))),
     db.select().from(installmentPlans),
     getInstallmentBudgetCents(),
+    // Recurring savings rules (with pot currency) to add to this month's saved.
+    db
+      .select({
+        amountCents: recurringSavings.amountCents,
+        inBudget: recurringSavings.inBudget,
+        startMonth: recurringSavings.startMonth,
+        currency: savingsPots.currency,
+      })
+      .from(recurringSavings)
+      .leftJoin(savingsPots, eq(recurringSavings.potId, savingsPots.id)),
   ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
@@ -163,8 +176,17 @@ export default async function Dashboard({
 
   // Savings & loans context. Only in-budget savings reduce Left to spend;
   // out-of-budget savings and all loan payments never touch the four totals.
-  const savedInBudget = Number(savedInBudgetRows[0]?.s ?? 0);
-  const savedOutside = Number(savedOutsideRows[0]?.s ?? 0);
+  // Recurring savings active this month (app-currency pots only) add to saved.
+  let recIn = 0;
+  let recOut = 0;
+  for (const r of recurringSavingRows) {
+    if ((r.currency ?? APP_CURRENCY) !== APP_CURRENCY) continue;
+    if (key < r.startMonth) continue;
+    if (r.inBudget) recIn += r.amountCents;
+    else recOut += r.amountCents;
+  }
+  const savedInBudget = Number(savedInBudgetRows[0]?.s ?? 0) + recIn;
+  const savedOutside = Number(savedOutsideRows[0]?.s ?? 0) + recOut;
   const loansDue = [
     ...effectiveLoanPayments(loanScheduleRows, key).values(),
   ].reduce((s, v) => s + v, 0);
