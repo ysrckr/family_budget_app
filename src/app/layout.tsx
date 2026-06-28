@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 import ConfirmProvider from "@/components/ConfirmProvider";
 
@@ -38,6 +39,12 @@ export default function RootLayout({
       <body
         className={`${display.variable} ${sans.variable} ${mono.variable} font-sans antialiased`}
       >
+        <NextTopLoader
+          color="#0E7C66"
+          height={3}
+          shadow="0 0 8px #0E7C66"
+          showSpinner={false}
+        />
         <ConfirmProvider>{children}</ConfirmProvider>
       </body>
     </html>

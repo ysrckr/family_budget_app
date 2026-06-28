@@ -109,19 +109,19 @@ export default async function SavingsPage({
         </div>
 
         <section className="mb-6 grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+          <div className="min-w-0 rounded-xl border border-line bg-surface p-4 shadow-card">
             <p className="text-xs uppercase tracking-wider text-ink-soft">
               Total saved
             </p>
-            <p className="num mt-1 text-base font-semibold leading-tight text-teal-dark sm:text-xl">
+            <p className="num mt-1 text-base font-semibold leading-tight text-teal-dark sm:text-lg">
               {formatMoney(totalSaved)}
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+          <div className="min-w-0 rounded-xl border border-line bg-surface p-4 shadow-card">
             <p className="text-xs uppercase tracking-wider text-ink-soft">
               Saved in {label}
             </p>
-            <p className="num mt-1 text-base font-semibold leading-tight sm:text-xl">
+            <p className="num mt-1 text-base font-semibold leading-tight sm:text-lg">
               {formatMoney(fromBudget + outside)}
             </p>
             <p className="mt-0.5 text-xs text-ink-soft">

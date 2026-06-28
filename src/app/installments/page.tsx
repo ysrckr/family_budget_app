@@ -60,25 +60,25 @@ export default async function InstallmentsPage({
           />
         </div>
 
-        <section className="mb-6 grid grid-cols-3 gap-3">
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+        <section className="mb-6 grid gap-3 sm:grid-cols-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-card sm:block">
             <p className="text-xs uppercase tracking-wider text-ink-soft">Budget</p>
-            <p className="num mt-1 text-base font-semibold leading-tight sm:text-xl">
+            <p className="num text-base font-semibold leading-tight sm:mt-1 sm:text-lg">
               {formatMoney(budgetCents)}
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-card sm:block">
             <p className="text-xs uppercase tracking-wider text-ink-soft">
               Committed
             </p>
-            <p className="num mt-1 text-base font-semibold leading-tight sm:text-xl">
+            <p className="num text-base font-semibold leading-tight sm:mt-1 sm:text-lg">
               {formatMoney(committed)}
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-line bg-surface p-4 shadow-card sm:block">
             <p className="text-xs uppercase tracking-wider text-ink-soft">Left</p>
             <p
-              className={`num mt-1 text-base font-semibold leading-tight sm:text-xl ${
+              className={`num text-base font-semibold leading-tight sm:mt-1 sm:text-lg ${
                 overCommitted ? "text-brick" : "text-teal-dark"
               }`}
             >

@@ -82,19 +82,19 @@ export default async function LoansPage({
         </div>
 
         <section className="mb-6 grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+          <div className="min-w-0 rounded-xl border border-line bg-surface p-4 shadow-card">
             <p className="text-xs uppercase tracking-wider text-ink-soft">
               Total still owed
             </p>
-            <p className="num mt-1 text-base font-semibold leading-tight sm:text-xl">
+            <p className="num mt-1 text-base font-semibold leading-tight sm:text-lg">
               {formatMoney(totalOwed)}
             </p>
           </div>
-          <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+          <div className="min-w-0 rounded-xl border border-line bg-surface p-4 shadow-card">
             <p className="text-xs uppercase tracking-wider text-ink-soft">
               Due in {label}
             </p>
-            <p className="num mt-1 text-base font-semibold leading-tight sm:text-xl">
+            <p className="num mt-1 text-base font-semibold leading-tight sm:text-lg">
               {formatMoney(dueThisMonth)}
             </p>
             <p className="mt-0.5 text-xs text-ink-soft">outside the budget</p>
