@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+/* Design tokens (Tailwind v4 CSS-first config). These generate the utilities
+   used across the app: bg-paper, text-ink, border-line, bg-teal-tint, font-display,
+   shadow-card, etc. Font tokens point at the next/font CSS variables set in layout. */
+@theme {
+  --color-paper: #f6f7f4;
+  --color-surface: #ffffff;
+  --color-ink: #1c2433;
+  --color-ink-soft: #55607a;
+  --color-line: #e4e5df;
+
+  --color-teal: #0e7c66;
+  --color-teal-dark: #0a5d4c;
+  --color-teal-tint: #e7f2ee;
+
+  --color-amber: #c68a12;
+  --color-amber-tint: #fbf1dc;
+
+  --color-brick: #c2453d;
+  --color-brick-tint: #fbe7e5;
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-plex), ui-monospace, monospace;
+
+  --shadow-card: 0 1px 2px rgba(28, 36, 51, 0.04),
+    0 8px 24px -16px rgba(28, 36, 51, 0.18);
+}
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-feature-settings: "ss01";
+}
+
+/* Monetary figures: aligned, ledger-like columns. */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* The envelope fill meter — the signature element. A thin band under each
+   category that fills left-to-right as money is spent, with a torn-flap notch. */
+.envelope {
+  position: relative;
+  background: linear-gradient(var(--color-surface), var(--color-surface));
+}
+.envelope::before {
+  /* subtle diagonal flap line across the top corners */
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 22px;
+  background: linear-gradient(
+    135deg,
+    transparent 0 12px,
+    rgba(28, 36, 51, 0.05) 12px 13px,
+    transparent 13px
+  );
+  pointer-events: none;
+}
+
+.meter {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-line);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 240ms ease;
+}
+
+/* Focus ring consistent across interactive elements */
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+/* Quick-add sheet + toast entrance */
+@keyframes sheet-up {
+  from {
+    transform: translateY(6%);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-sheet-up {
+  animation: sheet-up 0.22s ease-out;
+}
+.animate-fade-in {
+  animation: fade-in 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
