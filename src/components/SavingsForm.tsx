@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { todayISO, monthLabel, billingMonthFor } from "@/lib/money";
+import {
+  todayISO,
+  monthLabel,
+  billingMonthFor,
+  parseMoneyToCents,
+} from "@/lib/money";
 
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
@@ -39,6 +44,10 @@ export default function SavingsForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (parseMoneyToCents(amount) <= 0) {
+      setError("Enter an amount.");
+      return;
+    }
     setBusy(true);
     const res = await fetch("/api/savings/txns", {
       method: "POST",
@@ -60,6 +69,8 @@ export default function SavingsForm({
     }
     setAmount("");
     setNote("");
+    setDate(todayISO());
+    setFromBudget(false);
     router.refresh();
   }
 

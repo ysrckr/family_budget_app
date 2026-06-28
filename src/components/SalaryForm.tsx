@@ -35,6 +35,7 @@ export default function SalaryForm({
       setError(d.error || "Could not save salary.");
       return;
     }
+    setPerson("");
     setAmount("");
     router.refresh();
   }

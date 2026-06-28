@@ -33,6 +33,7 @@ export default function IncomeForm({ today }: { today: string }) {
     setSource("");
     setAmount("");
     setNote("");
+    setOccurredOn(today);
     router.refresh();
   }
 

@@ -35,6 +35,7 @@ export default function FixedCostForm({
       setError(d.error || "Could not save.");
       return;
     }
+    setLabel("");
     setAmount("");
     router.refresh();
   }
