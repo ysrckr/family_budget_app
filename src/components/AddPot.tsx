@@ -2,14 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { APP_CURRENCY } from "@/lib/money";
 
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
+
+const CURRENCIES = ["THB", "USD", "EUR", "GBP"];
 
 export default function AddPot() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [currency, setCurrency] = useState(APP_CURRENCY);
   const [target, setTarget] = useState("");
   const [initial, setInitial] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,7 +26,7 @@ export default function AddPot() {
     const res = await fetch("/api/savings/pots", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, target, initial }),
+      body: JSON.stringify({ name, currency, target, initial }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -31,11 +35,17 @@ export default function AddPot() {
       return;
     }
     setName("");
+    setCurrency(APP_CURRENCY);
     setTarget("");
     setInitial("");
     setOpen(false);
     router.refresh();
   }
+
+  // Always offer the app currency even if it isn't in the common list.
+  const currencyOptions = CURRENCIES.includes(APP_CURRENCY)
+    ? CURRENCIES
+    : [APP_CURRENCY, ...CURRENCIES];
 
   if (!open) {
     return (
@@ -63,7 +73,21 @@ export default function AddPot() {
           onChange={(e) => setName(e.target.value)}
         />
       </label>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="grid gap-1 text-xs text-ink-soft">
+          Currency
+          <select
+            className={input}
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+          >
+            {currencyOptions.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
         <label className="grid gap-1 text-xs text-ink-soft">
           Goal (optional)
           <input

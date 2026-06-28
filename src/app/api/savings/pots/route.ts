@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { savingsPots, savingsTxns } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { parseMoneyToCents, todayISO } from "@/lib/money";
+import { parseMoneyToCents, todayISO, APP_CURRENCY } from "@/lib/money";
 
 function normTarget(raw: unknown): number | null {
   if (raw === undefined || raw === null || raw === "") return null;
@@ -21,9 +21,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Give the pot a name." }, { status: 400 });
   }
 
+  const currency = String(body.currency ?? APP_CURRENCY)
+    .toUpperCase()
+    .slice(0, 3) || APP_CURRENCY;
+
   const [row] = await db
     .insert(savingsPots)
-    .values({ name, targetCents: normTarget(body.target) })
+    .values({ name, targetCents: normTarget(body.target), currency })
     .returning();
 
   // Optional starting balance: seed it as an out-of-budget opening deposit so

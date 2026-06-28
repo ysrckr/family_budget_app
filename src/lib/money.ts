@@ -1,10 +1,10 @@
-const CURRENCY = process.env.NEXT_PUBLIC_CURRENCY || "USD";
+export const APP_CURRENCY = process.env.NEXT_PUBLIC_CURRENCY || "USD";
 
-/** Format integer cents as a currency string, e.g. 500000 -> "฿5,000.00". */
-export function formatMoney(cents: number): string {
+/** Format integer cents in a currency (defaults to the app currency). */
+export function formatMoney(cents: number, currency = APP_CURRENCY): string {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: CURRENCY,
+    currency,
     // Use the short symbol (฿, $, €…) instead of the 3-letter code so figures
     // stay compact and don't overflow narrow cards.
     currencyDisplay: "narrowSymbol",
@@ -12,11 +12,11 @@ export function formatMoney(cents: number): string {
 }
 
 /** Compact money for chart axes, e.g. 1234567 -> "฿12.3k". */
-export function formatMoneyCompact(cents: number): string {
+export function formatMoneyCompact(cents: number, currency = APP_CURRENCY): string {
   const v = (cents || 0) / 100;
   const sym = new Intl.NumberFormat(undefined, {
     style: "currency",
-    currency: CURRENCY,
+    currency,
     currencyDisplay: "narrowSymbol",
     maximumFractionDigits: 0,
   })
