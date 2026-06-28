@@ -45,6 +45,36 @@ export function totalSalary(rows: SalaryRow[], monthKey: string): number {
   );
 }
 
+export type FixedCostRow = {
+  label: string;
+  amountCents: number;
+  effectiveFrom: string;
+};
+
+/** Effective fixed cost per label for a month (latest row in effect per label). */
+export function effectiveFixedCosts(
+  rows: FixedCostRow[],
+  monthKey: string
+): { label: string; amountCents: number }[] {
+  const byLabel = new Map<string, FixedCostRow[]>();
+  for (const r of rows) {
+    (byLabel.get(r.label) ?? byLabel.set(r.label, []).get(r.label)!).push(r);
+  }
+  const out: { label: string; amountCents: number }[] = [];
+  for (const [label, list] of byLabel) {
+    const row = latest(list, monthKey);
+    if (row) out.push({ label, amountCents: row.amountCents });
+  }
+  return out.sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function totalFixedCosts(rows: FixedCostRow[], monthKey: string): number {
+  return effectiveFixedCosts(rows, monthKey).reduce(
+    (s, x) => s + x.amountCents,
+    0
+  );
+}
+
 export type BudgetRow = {
   categoryId: number;
   amountCents: number;

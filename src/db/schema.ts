@@ -31,6 +31,18 @@ export const salaries = pgTable("salaries", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Fixed recurring monthly costs (rent, internet, …). Effective-dated like
+// salaries: set once and it applies every month until you add a later row with
+// a new amount. Comes straight out of "Left to spend" — never logged as a
+// manual expense.
+export const fixedCosts = pgTable("fixed_costs", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  effectiveFrom: date("effective_from", { mode: "string" }).notNull(), // "YYYY-MM-01"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // A budget envelope. Two kinds:
 //   - "shared":    a household envelope (Market, Subs, Rent, ...)
 //   - "allowance": one person's personal spending money; `owner` is the person.
@@ -188,6 +200,7 @@ export const loanPayments = pgTable("loan_payments", {
 
 export type User = typeof users.$inferSelect;
 export type Salary = typeof salaries.$inferSelect;
+export type FixedCost = typeof fixedCosts.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
 export type Card = typeof cards.$inferSelect;

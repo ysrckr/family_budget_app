@@ -1,6 +1,6 @@
-import { asc } from "drizzle-orm";
+import { asc, desc } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, budgets, salaries } from "@/db/schema";
+import { categories, budgets, salaries, fixedCosts } from "@/db/schema";
 import {
   formatMoney,
   currentBudgetMonth,
@@ -8,12 +8,13 @@ import {
   shiftMonth,
   isMonthKey,
 } from "@/lib/money";
-import { effectiveBudgets } from "@/lib/recurring";
+import { effectiveBudgets, effectiveFixedCosts } from "@/lib/recurring";
 import { getCutoffDay } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import { CategoryForm, BudgetEditor } from "@/components/CategoryForm";
 import AllowanceForm from "@/components/AllowanceForm";
+import FixedCostForm from "@/components/FixedCostForm";
 import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
@@ -28,16 +29,24 @@ export default async function BudgetPage({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
 
-  const [cats, budgetRows, salaryRows] = await Promise.all([
+  const [cats, budgetRows, salaryRows, fixedRows] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
     db.select().from(salaries),
+    db
+      .select()
+      .from(fixedCosts)
+      .orderBy(asc(fixedCosts.label), desc(fixedCosts.effectiveFrom)),
   ]);
 
   const eff = effectiveBudgets(budgetRows, key);
   const shared = cats.filter((c) => c.kind === "shared");
   const allowances = cats.filter((c) => c.kind === "allowance");
   const sharedTotal = shared.reduce((s, c) => s + (eff.get(c.id) ?? 0), 0);
+
+  const currentFixed = effectiveFixedCosts(fixedRows, key);
+  const fixedTotal = currentFixed.reduce((s, f) => s + f.amountCents, 0);
+  const fixedLabels = [...new Set(fixedRows.map((r) => r.label))];
 
   const people = [
     ...new Set([
@@ -151,6 +160,71 @@ export default async function BudgetPage({
           Tip: tap any amount to change it. New amounts apply from {label}{" "}
           forward — earlier months keep what they had.
         </p>
+
+        {/* Fixed monthly costs */}
+        <h2 className="mb-3 mt-10 font-display text-xl font-medium">
+          Fixed monthly costs
+        </h2>
+        <p className="mb-3 text-sm text-ink-soft">
+          Bills like rent that repeat every month and come straight out of
+          &ldquo;Left to spend&rdquo; — you don&rsquo;t log them as spending.
+        </p>
+        <div className="rounded-xl border border-line bg-surface p-5 shadow-card">
+          <FixedCostForm currentMonth={key} labels={fixedLabels} />
+        </div>
+
+        {currentFixed.length > 0 && (
+          <div className="mt-4 rounded-xl border border-line bg-surface shadow-card">
+            <ul className="divide-y divide-line/60">
+              {currentFixed.map((f) => (
+                <li
+                  key={f.label}
+                  className="flex items-center gap-3 px-4 py-3"
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {f.label}
+                  </span>
+                  <span className="num font-medium">
+                    {formatMoney(f.amountCents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex items-center justify-between border-t border-line px-4 py-3">
+              <span className="text-xs uppercase tracking-wider text-ink-soft">
+                Total fixed / month
+              </span>
+              <span className="num font-semibold">{formatMoney(fixedTotal)}</span>
+            </div>
+          </div>
+        )}
+
+        {fixedRows.length > 0 && (
+          <div className="mt-4 rounded-xl border border-line bg-surface shadow-card">
+            <p className="border-b border-line px-4 py-2.5 text-xs uppercase tracking-wider text-ink-soft">
+              History
+            </p>
+            <ul className="divide-y divide-line/60">
+              {fixedRows.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{r.label}</div>
+                    <div className="mt-0.5 text-xs text-ink-soft">
+                      from {monthLabel(r.effectiveFrom.slice(0, 7))}
+                    </div>
+                  </div>
+                  <span className="num shrink-0 font-medium">
+                    {formatMoney(r.amountCents)}
+                  </span>
+                  <DeleteButton
+                    url={`/api/fixed-costs?id=${r.id}`}
+                    confirm={`Delete this "${r.label}" amount?`}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </main>
     </>
   );

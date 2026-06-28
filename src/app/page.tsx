@@ -9,6 +9,7 @@ import {
   expenses,
   savingsTxns,
   loanSchedules,
+  fixedCosts,
 } from "@/db/schema";
 import {
   formatMoney,
@@ -21,6 +22,7 @@ import {
 import {
   effectiveBudgets,
   totalSalary,
+  totalFixedCosts,
   effectiveLoanPayments,
 } from "@/lib/recurring";
 import { getCutoffDay } from "@/lib/settings";
@@ -51,6 +53,7 @@ export default async function Dashboard({
     savedInBudgetRows,
     savedOutsideRows,
     loanScheduleRows,
+    fixedRows,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
@@ -80,6 +83,7 @@ export default async function Dashboard({
         sql`${savingsTxns.txnType} = 'deposit' and ${savingsTxns.inBudget} = false and to_char(${savingsTxns.occurredOn}, 'YYYY-MM') = ${key}`
       ),
     db.select().from(loanSchedules),
+    db.select().from(fixedCosts),
   ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
@@ -123,8 +127,10 @@ export default async function Dashboard({
   const loansDue = [
     ...effectiveLoanPayments(loanScheduleRows, key).values(),
   ].reduce((s, v) => s + v, 0);
+  // Fixed recurring costs (rent, etc.) come straight out of Left to spend.
+  const fixedTotal = totalFixedCosts(fixedRows, key);
 
-  const left = totalIncome - totalSpent - savedInBudget;
+  const left = totalIncome - totalSpent - fixedTotal - savedInBudget;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
 
   return (
@@ -159,35 +165,59 @@ export default async function Dashboard({
           />
         </section>
 
-        {(savedInBudget > 0 || savedOutside > 0 || loansDue > 0) && (
-          <div className="-mt-6 mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-xs text-ink-soft shadow-card">
-            <span>
-              <span className="num font-medium text-ink">
-                {formatMoney(savedInBudget)}
-              </span>{" "}
-              saved from budget
-            </span>
-            <span aria-hidden className="text-line">
-              ·
-            </span>
-            <span>
-              <span className="num font-medium text-ink">
-                {formatMoney(savedOutside)}
-              </span>{" "}
-              saved outside
-            </span>
-            <span aria-hidden className="text-line">
-              ·
-            </span>
-            <span>
-              <span className="num font-medium text-ink">
-                {formatMoney(loansDue)}
-              </span>{" "}
-              loans due
-            </span>
-            <span className="text-ink-soft/70">
-              — outside figures don&rsquo;t affect Left to spend
-            </span>
+        {(fixedTotal > 0 ||
+          savedInBudget > 0 ||
+          savedOutside > 0 ||
+          loansDue > 0) && (
+          <div className="-mt-6 mb-8 space-y-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-xs shadow-card">
+            {(fixedTotal > 0 || savedInBudget > 0) && (
+              <p className="text-ink-soft">
+                Taken out of Left:
+                {fixedTotal > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium text-ink">
+                      {formatMoney(fixedTotal)}
+                    </span>{" "}
+                    fixed costs
+                  </>
+                )}
+                {fixedTotal > 0 && savedInBudget > 0 ? " ·" : ""}
+                {savedInBudget > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium text-ink">
+                      {formatMoney(savedInBudget)}
+                    </span>{" "}
+                    saved from budget
+                  </>
+                )}
+              </p>
+            )}
+            {(savedOutside > 0 || loansDue > 0) && (
+              <p className="text-ink-soft/70">
+                Outside budget (doesn&rsquo;t affect Left):
+                {savedOutside > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium">
+                      {formatMoney(savedOutside)}
+                    </span>{" "}
+                    saved outside
+                  </>
+                )}
+                {savedOutside > 0 && loansDue > 0 ? " ·" : ""}
+                {loansDue > 0 && (
+                  <>
+                    {" "}
+                    <span className="num font-medium">
+                      {formatMoney(loansDue)}
+                    </span>{" "}
+                    loans due
+                  </>
+                )}
+              </p>
+            )}
           </div>
         )}
 
