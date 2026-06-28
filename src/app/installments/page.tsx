@@ -15,6 +15,7 @@ import MonthSwitcher from "@/components/MonthSwitcher";
 import InstallmentBudgetForm from "@/components/InstallmentBudgetForm";
 import InstallmentForm from "@/components/InstallmentForm";
 import DeleteButton from "@/components/DeleteButton";
+import EditInstallmentButton from "@/components/EditInstallmentButton";
 
 export const dynamic = "force-dynamic";
 
@@ -141,7 +142,26 @@ export default async function InstallmentsPage({
                         {formatMoney(p.monthlyPaymentCents)}
                         <span className="text-ink-soft">/mo</span>
                       </div>
-                      <div className="mt-1 flex justify-end">
+                      <div className="mt-1 flex items-center justify-end gap-1">
+                        <EditInstallmentButton
+                          plan={{
+                            id: p.id,
+                            label: p.label,
+                            principalCents: p.principalCents,
+                            aprBps: p.aprBps,
+                            months: p.months,
+                            monthlyPaymentCents: p.monthlyPaymentCents,
+                            startMonth: p.startMonth,
+                            cardId: p.cardId,
+                          }}
+                          cards={cardList.map((c) => ({
+                            id: c.id,
+                            label: c.label,
+                            last4: c.last4,
+                          }))}
+                          remainingCents={left}
+                          currentMonth={key}
+                        />
                         <DeleteButton
                           url={`/api/installments?id=${p.id}`}
                           confirm={`Delete the "${p.label}" installment?`}

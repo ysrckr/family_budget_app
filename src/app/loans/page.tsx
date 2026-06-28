@@ -18,6 +18,8 @@ import LoanPaymentForm from "@/components/LoanPaymentForm";
 import LoanScheduleForm from "@/components/LoanScheduleForm";
 import DeleteButton from "@/components/DeleteButton";
 import ActionButton from "@/components/ActionButton";
+import EditLoanPaymentButton from "@/components/EditLoanPaymentButton";
+import EditLoanButton from "@/components/EditLoanButton";
 
 export const dynamic = "force-dynamic";
 
@@ -204,10 +206,19 @@ export default async function LoansPage({
                                   {p.paidOn}
                                   {p.note ? ` · ${p.note}` : ""}
                                 </span>
-                                <span className="flex items-center gap-3">
+                                <span className="flex items-center gap-1">
                                   <span className="num font-medium">
                                     {formatMoney(p.amountCents)}
                                   </span>
+                                  <EditLoanPaymentButton
+                                    loanId={l.id}
+                                    payment={{
+                                      id: p.id,
+                                      amountCents: p.amountCents,
+                                      paidOn: p.paidOn,
+                                      note: p.note,
+                                    }}
+                                  />
                                   <DeleteButton
                                     url={`/api/loans/payments?id=${p.id}`}
                                     confirm="Delete this payment?"
@@ -219,7 +230,17 @@ export default async function LoansPage({
                         </div>
                       )}
 
-                      <div className="flex items-center justify-between border-t border-line/60 pt-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line/60 pt-3">
+                        <EditLoanButton
+                          loan={{
+                            id: l.id,
+                            name: l.name,
+                            originalPrincipalCents: l.originalPrincipalCents,
+                            openingBalanceCents: l.openingBalanceCents,
+                            startMonth: l.startMonth,
+                            termMonths: l.termMonths,
+                          }}
+                        />
                         <ActionButton
                           url="/api/loans"
                           method="PATCH"

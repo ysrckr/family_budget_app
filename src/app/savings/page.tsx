@@ -22,6 +22,8 @@ import SavingsForm from "@/components/SavingsForm";
 import AddPot from "@/components/AddPot";
 import DeleteButton from "@/components/DeleteButton";
 import ActionButton from "@/components/ActionButton";
+import EditSavingsTxnButton from "@/components/EditSavingsTxnButton";
+import EditPotButton from "@/components/EditPotButton";
 
 export const dynamic = "force-dynamic";
 
@@ -242,7 +244,14 @@ export default async function SavingsPage({
                     <span className="text-ink-soft">
                       {pct != null ? `${pct}% of goal` : "Open-ended pot"}
                     </span>
-                    <span className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      <EditPotButton
+                        pot={{
+                          id: p.id,
+                          name: p.name,
+                          targetCents: p.targetCents,
+                        }}
+                      />
                       <ActionButton
                         url="/api/savings/pots"
                         method="PATCH"
@@ -332,7 +341,24 @@ export default async function SavingsPage({
                         {withdrawal ? "−" : "+"}
                         {formatMoney(t.amountCents, t.potCurrency ?? APP_CURRENCY)}
                       </div>
-                      <div className="mt-1 flex justify-end">
+                      <div className="mt-1 flex items-center justify-end gap-1">
+                        <EditSavingsTxnButton
+                          txn={{
+                            id: t.id,
+                            potId: t.potId,
+                            txnType: t.txnType,
+                            amountCents: t.amountCents,
+                            occurredOn: t.occurredOn,
+                            inBudget: t.inBudget,
+                            note: t.note,
+                          }}
+                          pots={pots.map((p) => ({
+                            id: p.id,
+                            name: p.name,
+                            currency: p.currency,
+                          }))}
+                          cutoffDay={cutoffDay}
+                        />
                         <DeleteButton
                           url={`/api/savings/txns?id=${t.id}`}
                           confirm="Delete this savings entry?"

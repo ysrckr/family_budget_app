@@ -10,14 +10,20 @@ const input =
 export default function LoanPaymentForm({
   loanId,
   defaultAmount,
+  edit,
+  onSaved,
 }: {
   loanId: number;
   defaultAmount: string; // major units, e.g. "1500"
+  edit?: { id: number; amountCents: number; paidOn: string; note: string | null };
+  onSaved?: () => void;
 }) {
   const router = useRouter();
-  const [amount, setAmount] = useState(defaultAmount);
-  const [paidOn, setPaidOn] = useState(todayISO());
-  const [note, setNote] = useState("");
+  const [amount, setAmount] = useState(
+    edit ? String(edit.amountCents / 100) : defaultAmount
+  );
+  const [paidOn, setPaidOn] = useState(edit?.paidOn ?? todayISO());
+  const [note, setNote] = useState(edit?.note ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,14 +32,21 @@ export default function LoanPaymentForm({
     setError("");
     setBusy(true);
     const res = await fetch("/api/loans/payments", {
-      method: "POST",
+      method: edit ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ loanId, amount, paidOn, note }),
+      body: JSON.stringify(
+        edit ? { id: edit.id, amount, paidOn, note } : { loanId, amount, paidOn, note }
+      ),
     });
     setBusy(false);
     if (!res.ok) {
       const d = await res.json().catch(() => ({}));
-      setError(d.error || "Could not record payment.");
+      setError(d.error || "Could not save payment.");
+      return;
+    }
+    if (edit) {
+      router.refresh();
+      onSaved?.();
       return;
     }
     setNote("");
@@ -67,7 +80,7 @@ export default function LoanPaymentForm({
         disabled={busy}
         className="rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
       >
-        {busy ? "Saving…" : "Record payment"}
+        {busy ? "Saving…" : edit ? "Save changes" : "Record payment"}
       </button>
       {error && <p className="text-sm text-brick sm:col-span-3">{error}</p>}
     </form>

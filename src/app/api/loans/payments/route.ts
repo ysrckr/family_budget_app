@@ -29,6 +29,28 @@ export async function POST(req: Request) {
   return NextResponse.json({ payment: row });
 }
 
+export async function PATCH(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const id = Number(body.id);
+  const amountCents = parseMoneyToCents(body.amount ?? 0);
+  const paidOn = body.paidOn ? String(body.paidOn).slice(0, 10) : todayISO();
+  const note = body.note ? String(body.note).trim() : null;
+
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  if (amountCents <= 0) {
+    return NextResponse.json({ error: "Add a payment amount." }, { status: 400 });
+  }
+
+  await db
+    .update(loanPayments)
+    .set({ amountCents, paidOn, note })
+    .where(eq(loanPayments.id, id));
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

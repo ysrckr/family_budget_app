@@ -60,6 +60,47 @@ export async function POST(req: Request) {
   return NextResponse.json({ txn: row, billingMonth, inBudget });
 }
 
+export async function PATCH(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const id = Number(body.id);
+  const potId = Number(body.potId);
+  const amountCents = parseMoneyToCents(body.amount ?? 0);
+  const txnType = body.txnType === "withdrawal" ? "withdrawal" : "deposit";
+  const occurredOn = String(body.occurredOn ?? "").slice(0, 10);
+  const note = body.note ? String(body.note).trim() : null;
+
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  if (!potId || amountCents <= 0 || !occurredOn) {
+    return NextResponse.json(
+      { error: "Pick a pot and add an amount and date." },
+      { status: 400 }
+    );
+  }
+
+  const [pot] = await db
+    .select({ currency: savingsPots.currency })
+    .from(savingsPots)
+    .where(eq(savingsPots.id, potId));
+  const sameCurrency = (pot?.currency ?? APP_CURRENCY) === APP_CURRENCY;
+  const inBudget =
+    txnType === "deposit" && body.inBudget === true && sameCurrency;
+
+  let billingMonth: string | null = null;
+  if (inBudget) {
+    const cutoff = await getCutoffDay();
+    billingMonth = billingMonthFor(occurredOn, cutoff);
+  }
+
+  await db
+    .update(savingsTxns)
+    .set({ potId, txnType, amountCents, inBudget, occurredOn, billingMonth, note })
+    .where(eq(savingsTxns.id, id));
+  return NextResponse.json({ ok: true, billingMonth, inBudget });
+}
+
 export async function DELETE(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
