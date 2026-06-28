@@ -11,6 +11,7 @@ import {
   loanSchedules,
   loans,
   fixedCosts,
+  installmentPlans,
 } from "@/db/schema";
 import {
   formatMoney,
@@ -26,7 +27,8 @@ import {
   totalFixedCosts,
   effectiveLoanPayments,
 } from "@/lib/recurring";
-import { getCutoffDay } from "@/lib/settings";
+import { getCutoffDay, getInstallmentBudgetCents } from "@/lib/settings";
+import { isActiveIn } from "@/lib/installments";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import SpendingChart from "@/components/SpendingChart";
@@ -63,6 +65,8 @@ export default async function Dashboard({
     fixedRows,
     trendExpenseRows,
     trendIncomeRows,
+    installmentRows,
+    installmentBudgetCents,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
@@ -117,6 +121,8 @@ export default async function Dashboard({
       .select({ occurredOn: incomes.occurredOn, amountCents: incomes.amountCents })
       .from(incomes)
       .where(and(gte(incomes.occurredOn, trendStartDate), lt(incomes.occurredOn, end))),
+    db.select().from(installmentPlans),
+    getInstallmentBudgetCents(),
   ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
@@ -163,7 +169,14 @@ export default async function Dashboard({
   // Fixed recurring costs (rent, etc.) come straight out of Left to spend.
   const fixedTotal = totalFixedCosts(fixedRows, key);
 
-  const left = totalIncome - totalSpent - fixedTotal - savedInBudget;
+  // Installments due this month also come out of Left to spend.
+  const installmentsCommitted = installmentRows
+    .filter((p) => isActiveIn(p.startMonth, p.months, key))
+    .reduce((s, p) => s + p.monthlyPaymentCents, 0);
+  const installmentsLeft = installmentBudgetCents - installmentsCommitted;
+
+  const left =
+    totalIncome - totalSpent - fixedTotal - savedInBudget - installmentsCommitted;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
 
   // Trend: income (salary + extra) vs spent per billing month, last 6 months.
@@ -188,6 +201,20 @@ export default async function Dashboard({
     };
   });
   const hasTrend = trendPoints.some((p) => p.income > 0 || p.spent > 0);
+
+  // Context strip parts.
+  const takenOutParts = [
+    fixedTotal > 0 ? `${formatMoney(fixedTotal)} fixed costs` : null,
+    installmentsCommitted > 0
+      ? `${formatMoney(installmentsCommitted)} installments`
+      : null,
+    savedInBudget > 0 ? `${formatMoney(savedInBudget)} saved from budget` : null,
+  ].filter(Boolean) as string[];
+  const outsideParts = [
+    savedOutside > 0 ? `${formatMoney(savedOutside)} saved outside` : null,
+    loansDue > 0 ? `${formatMoney(loansDue)} loans due` : null,
+  ].filter(Boolean) as string[];
+  const showInstallmentsPlan = installmentBudgetCents > 0;
 
   return (
     <>
@@ -221,57 +248,37 @@ export default async function Dashboard({
           />
         </section>
 
-        {(fixedTotal > 0 ||
-          savedInBudget > 0 ||
-          savedOutside > 0 ||
-          loansDue > 0) && (
+        {(takenOutParts.length > 0 ||
+          outsideParts.length > 0 ||
+          showInstallmentsPlan) && (
           <div className="-mt-6 mb-8 space-y-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-xs shadow-card">
-            {(fixedTotal > 0 || savedInBudget > 0) && (
+            {takenOutParts.length > 0 && (
               <p className="text-ink-soft">
-                Taken out of Left:
-                {fixedTotal > 0 && (
-                  <>
-                    {" "}
-                    <span className="num font-medium text-ink">
-                      {formatMoney(fixedTotal)}
-                    </span>{" "}
-                    fixed costs
-                  </>
-                )}
-                {fixedTotal > 0 && savedInBudget > 0 ? " ·" : ""}
-                {savedInBudget > 0 && (
-                  <>
-                    {" "}
-                    <span className="num font-medium text-ink">
-                      {formatMoney(savedInBudget)}
-                    </span>{" "}
-                    saved from budget
-                  </>
-                )}
+                Taken out of Left:{" "}
+                <span className="num text-ink">{takenOutParts.join(" · ")}</span>
               </p>
             )}
-            {(savedOutside > 0 || loansDue > 0) && (
+            {showInstallmentsPlan && (
+              <p className="text-ink-soft">
+                Installments budget:{" "}
+                <span className="num text-ink">
+                  {formatMoney(installmentsCommitted)} of{" "}
+                  {formatMoney(installmentBudgetCents)}
+                </span>{" "}
+                used ·{" "}
+                <span
+                  className={`num ${
+                    installmentsLeft < 0 ? "text-brick" : "text-teal-dark"
+                  }`}
+                >
+                  {formatMoney(installmentsLeft)} left
+                </span>
+              </p>
+            )}
+            {outsideParts.length > 0 && (
               <p className="text-ink-soft/70">
-                Outside budget (doesn&rsquo;t affect Left):
-                {savedOutside > 0 && (
-                  <>
-                    {" "}
-                    <span className="num font-medium">
-                      {formatMoney(savedOutside)}
-                    </span>{" "}
-                    saved outside
-                  </>
-                )}
-                {savedOutside > 0 && loansDue > 0 ? " ·" : ""}
-                {loansDue > 0 && (
-                  <>
-                    {" "}
-                    <span className="num font-medium">
-                      {formatMoney(loansDue)}
-                    </span>{" "}
-                    loans due
-                  </>
-                )}
+                Outside budget (doesn&rsquo;t affect Left):{" "}
+                <span className="num">{outsideParts.join(" · ")}</span>
               </p>
             )}
           </div>

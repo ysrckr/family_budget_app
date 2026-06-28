@@ -34,3 +34,31 @@ export async function setCutoffDay(day: number | null): Promise<void> {
     await db.insert(settings).values({ key: CUTOFF_KEY, value });
   }
 }
+
+export const INSTALLMENT_BUDGET_KEY = "installment_budget"; // monthly amount, cents
+
+/** The household monthly installments budget in cents (0 if unset). */
+export async function getInstallmentBudgetCents(): Promise<number> {
+  const [row] = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, INSTALLMENT_BUDGET_KEY));
+  const n = row?.value ? parseInt(row.value, 10) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+export async function setInstallmentBudgetCents(cents: number): Promise<void> {
+  const value = cents > 0 ? String(Math.round(cents)) : "";
+  const [existing] = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, INSTALLMENT_BUDGET_KEY));
+  if (existing) {
+    await db
+      .update(settings)
+      .set({ value })
+      .where(eq(settings.key, INSTALLMENT_BUDGET_KEY));
+  } else {
+    await db.insert(settings).values({ key: INSTALLMENT_BUDGET_KEY, value });
+  }
+}
