@@ -374,9 +374,9 @@ function Stat({
       ? "text-brick"
       : "text-ink";
   return (
-    <div className="rounded-xl border border-line bg-surface p-4 shadow-card">
+    <div className="min-w-0 rounded-xl border border-line bg-surface p-4 shadow-card">
       <p className="text-xs uppercase tracking-wider text-ink-soft">{label}</p>
-      <p className={`num mt-1 text-base font-semibold leading-tight sm:text-xl ${color}`}>
+      <p className={`num mt-1 text-base font-semibold leading-tight sm:text-lg ${color}`}>
         {value}
       </p>
     </div>

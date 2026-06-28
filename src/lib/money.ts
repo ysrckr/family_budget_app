@@ -1,11 +1,33 @@
 const CURRENCY = process.env.NEXT_PUBLIC_CURRENCY || "USD";
 
-/** Format integer cents as a currency string, e.g. 500000 -> "$5,000.00". */
+/** Format integer cents as a currency string, e.g. 500000 -> "฿5,000.00". */
 export function formatMoney(cents: number): string {
   return new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: CURRENCY,
+    // Use the short symbol (฿, $, €…) instead of the 3-letter code so figures
+    // stay compact and don't overflow narrow cards.
+    currencyDisplay: "narrowSymbol",
   }).format((cents || 0) / 100);
+}
+
+/** Compact money for chart axes, e.g. 1234567 -> "฿12.3k". */
+export function formatMoneyCompact(cents: number): string {
+  const v = (cents || 0) / 100;
+  const sym = new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: CURRENCY,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 0,
+  })
+    .formatToParts(0)
+    .find((p) => p.type === "currency")?.value ?? "";
+  const abs = Math.abs(v);
+  let num: string;
+  if (abs >= 1_000_000) num = `${(v / 1_000_000).toFixed(1)}M`;
+  else if (abs >= 1_000) num = `${(v / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}k`;
+  else num = String(Math.round(v));
+  return `${sym}${num}`;
 }
 
 /** Parse a user-typed amount ("5000", "5,000.50") into integer cents. */
