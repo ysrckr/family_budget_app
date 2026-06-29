@@ -3,7 +3,13 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { recurringSavings, savingsPots } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { parseMoneyToCents, isMonthKey, monthKey, APP_CURRENCY } from "@/lib/money";
+import {
+  parseMoneyToCents,
+  isMonthKey,
+  currentBudgetMonth,
+  APP_CURRENCY,
+} from "@/lib/money";
+import { getCutoffDay } from "@/lib/settings";
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
@@ -12,7 +18,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const potId = Number(body.potId);
   const amountCents = parseMoneyToCents(body.amount ?? 0);
-  const startMonth = isMonthKey(body.startMonth) ? body.startMonth : monthKey();
+  const startMonth = isMonthKey(body.startMonth)
+    ? body.startMonth
+    : currentBudgetMonth(await getCutoffDay());
 
   if (!potId || amountCents <= 0) {
     return NextResponse.json(
