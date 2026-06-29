@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { installmentPlans, cards } from "@/db/schema";
@@ -12,7 +13,6 @@ import { isActiveIn, planEndMonth, paymentsRemaining } from "@/lib/installments"
 import { getCutoffDay, getInstallmentBudgetCents } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
-import InstallmentBudgetForm from "@/components/InstallmentBudgetForm";
 import InstallmentForm from "@/components/InstallmentForm";
 import DeleteButton from "@/components/DeleteButton";
 import EditInstallmentButton from "@/components/EditInstallmentButton";
@@ -90,12 +90,16 @@ export default async function InstallmentsPage({
           </div>
         </section>
 
-        <div className="rounded-xl border border-line bg-surface p-5 shadow-card">
-          <h2 className="mb-3 font-display text-base font-medium">
-            Monthly budget
-          </h2>
-          <InstallmentBudgetForm budgetCents={budgetCents} />
-        </div>
+        <p className="text-sm text-ink-soft">
+          Set the monthly installments budget on the{" "}
+          <Link
+            href="/budget"
+            className="text-teal underline-offset-2 hover:underline"
+          >
+            Budgets page
+          </Link>
+          .
+        </p>
 
         <h2 className="mb-3 mt-8 font-display text-xl font-medium">
           Plan a purchase
