@@ -9,6 +9,7 @@ import {
   parseMoneyToCents,
   APP_CURRENCY,
 } from "@/lib/money";
+import SetupNotice from "./SetupNotice";
 
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
@@ -18,6 +19,8 @@ export default function SavingsForm({
   cutoffDay = null,
   edit,
   onSaved,
+  manageHref,
+  onNavigate,
 }: {
   pots: { id: number; name: string; currency: string }[];
   cutoffDay?: number | null;
@@ -31,6 +34,11 @@ export default function SavingsForm({
     note: string | null;
   };
   onSaved?: () => void;
+  // When set (e.g. in the quick-add sheet), the "no pots yet" notice shows a
+  // button to this page. On the Savings page itself the pot form is inline, so
+  // it's omitted.
+  manageHref?: string;
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
   const [potId, setPotId] = useState(edit?.potId ?? pots[0]?.id ?? 0);
@@ -46,7 +54,14 @@ export default function SavingsForm({
   const [error, setError] = useState("");
 
   if (pots.length === 0) {
-    return (
+    return manageHref ? (
+      <SetupNotice
+        message="Create a savings pot first, then add money to it."
+        href={manageHref}
+        action="Go to Savings"
+        onNavigate={onNavigate}
+      />
+    ) : (
       <p className="rounded-md border border-line bg-paper px-4 py-3 text-sm text-ink-soft">
         Create a savings pot first, then add money to it.
       </p>
