@@ -124,6 +124,7 @@ export default function SavingsForm({
     setFromBudget(false);
     setRecurring(false);
     router.refresh();
+    onSaved?.();
   }
 
   return (

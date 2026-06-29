@@ -104,6 +104,7 @@ export default function InstallmentForm({
     setMonthlyManual("");
     setCardId("");
     router.refresh();
+    onSaved?.();
   }
 
   return (

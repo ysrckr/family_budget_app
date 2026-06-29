@@ -53,6 +53,7 @@ export default function LoanPaymentForm({
     setAmount(defaultAmount);
     setPaidOn(todayISO());
     router.refresh();
+    onSaved?.();
   }
 
   return (

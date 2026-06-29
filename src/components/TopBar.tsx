@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { categories, cards } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getCutoffDay } from "@/lib/settings";
+import { getQuickAddData } from "@/lib/quickadd";
 import LogoutButton from "./LogoutButton";
 import QuickAddSpending from "./QuickAddSpending";
 import BudgetMark from "./BudgetMark";
@@ -33,6 +34,8 @@ export default async function TopBar({ active }: { active: string }) {
     db.select().from(cards).orderBy(asc(cards.label)),
     getCutoffDay(),
   ]);
+
+  const quickAdd = await getQuickAddData(cutoffDay);
 
   const sharedCategories = cats
     .filter((c) => c.kind === "shared")
@@ -85,6 +88,11 @@ export default async function TopBar({ active }: { active: string }) {
         allowanceCategories={allowanceCategories}
         cards={cardList}
         cutoffDay={cutoffDay}
+        pots={quickAdd.pots}
+        loans={quickAdd.loans}
+        installmentRemaining={quickAdd.installmentRemaining}
+        subscriptionRemaining={quickAdd.subscriptionRemaining}
+        currentMonth={quickAdd.currentMonth}
       />
     </>
   );
