@@ -5,7 +5,7 @@ import { categories, cards } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { getCutoffDay } from "@/lib/settings";
 import { getQuickAddData } from "@/lib/quickadd";
-import LogoutButton from "./LogoutButton";
+import UserMenu from "./UserMenu";
 import QuickAddSpending from "./QuickAddSpending";
 import BudgetMark from "./BudgetMark";
 import MobileNav from "./MobileNav";
@@ -73,10 +73,7 @@ export default async function TopBar({ active }: { active: string }) {
 
           <div className="ml-auto flex items-center gap-3">
             <div className="hidden items-center gap-3 sm:flex">
-              {user && (
-                <span className="text-sm text-ink-soft">{user.name}</span>
-              )}
-              <LogoutButton />
+              <UserMenu userName={user?.name ?? null} />
             </div>
             <MobileNav links={links} active={active} userName={user?.name ?? null} />
           </div>
