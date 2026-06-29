@@ -74,6 +74,7 @@ export default function SubscriptionForm({
     setAmount("");
     setCycle("monthly");
     router.refresh();
+    onSaved?.();
   }
 
   return (

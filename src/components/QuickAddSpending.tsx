@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import ExpenseForm from "./ExpenseForm";
+import SavingsForm from "./SavingsForm";
+import InstallmentForm from "./InstallmentForm";
+import SubscriptionForm from "./SubscriptionForm";
+import LoanPaymentForm from "./LoanPaymentForm";
 import { monthKey, monthLabel, shiftMonth } from "@/lib/money";
 
 type Cat = { id: number; name: string };
@@ -13,35 +17,69 @@ type CardOption = {
   last4: string | null;
   cutDay: number | null;
 };
+type Pot = { id: number; name: string; currency: string };
+type LoanOption = { id: number; name: string; scheduledCents: number };
+
+type AddType = "spending" | "saving" | "installment" | "subscription" | "loan";
+
+const TYPES: { key: AddType; label: string }[] = [
+  { key: "spending", label: "Spending" },
+  { key: "saving", label: "Saving" },
+  { key: "installment", label: "Installment" },
+  { key: "subscription", label: "Subscription" },
+  { key: "loan", label: "Loan payment" },
+];
+
+const TITLES: Record<AddType, string> = {
+  spending: "Add spending",
+  saving: "Add to savings",
+  installment: "Add installment",
+  subscription: "Add subscription",
+  loan: "Record loan payment",
+};
 
 /**
- * A floating "+" button, present on every page, that opens a quick spending
- * entry. On phones it's a bottom sheet; on wider screens a centered dialog.
- * Reuses ExpenseForm so the cut-date logic, receipt upload and validation are
- * identical to the Spending page. Defaults to the current month.
+ * A floating "+" button, present on every page, that opens one entry form which
+ * morphs between spending, saving, installment, subscription and loan-payment
+ * shapes via a type picker. Each shape reuses the same form component as its
+ * dedicated page, so validation/cut-date/calculation logic stays identical.
  */
 export default function QuickAddSpending({
   sharedCategories,
   allowanceCategories,
   cards,
   cutoffDay = null,
+  pots,
+  loans,
+  installmentRemaining,
+  subscriptionRemaining,
+  currentMonth,
 }: {
   sharedCategories: Cat[];
   allowanceCategories: AllowanceCat[];
   cards: CardOption[];
   cutoffDay?: number | null;
+  pots: Pot[];
+  loans: LoanOption[];
+  installmentRemaining: number;
+  subscriptionRemaining: number;
+  currentMonth: string;
 }) {
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  // Which month the spending is added to. Defaults to the current month but can
-  // be changed — e.g. spending end-of-June money that belongs to July's budget.
+  const [type, setType] = useState<AddType>("spending");
+  // Which month spending is added to. Defaults to current; can be changed —
+  // e.g. logging end-of-June money against July's budget.
   const [month, setMonth] = useState(monthKey());
+  const [loanId, setLoanId] = useState<number>(loans[0]?.id ?? 0);
 
   useEffect(() => setMounted(true), []);
 
   function openSheet() {
-    setMonth(monthKey()); // reset to the current month each time it opens
+    setType("spending");
+    setMonth(monthKey());
+    setLoanId(loans[0]?.id ?? 0);
     setOpen(true);
   }
 
@@ -67,7 +105,7 @@ export default function QuickAddSpending({
     return () => clearTimeout(t);
   }, [toast]);
 
-  function handleSaved(info: { billingMonth: string; rolled: boolean }) {
+  function handleSpendingSaved(info: { billingMonth: string; rolled: boolean }) {
     setOpen(false);
     if (info.rolled) {
       setToast(
@@ -80,13 +118,24 @@ export default function QuickAddSpending({
     }
   }
 
+  function done(message: string) {
+    setOpen(false);
+    setToast(message);
+  }
+
+  const selectedLoan = loans.find((l) => l.id === loanId);
+  const loanDefault =
+    selectedLoan && selectedLoan.scheduledCents > 0
+      ? String(selectedLoan.scheduledCents / 100)
+      : "";
+
   return (
     <>
       {/* Floating action button — fixed, with iOS safe-area padding. */}
       <button
         type="button"
         onClick={openSheet}
-        aria-label="Add spending"
+        aria-label="Add"
         aria-haspopup="dialog"
         className="fixed right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-teal text-white shadow-card transition-transform hover:bg-teal-dark active:scale-95"
         style={{ bottom: "calc(1.25rem + env(safe-area-inset-bottom, 0px))" }}
@@ -108,7 +157,7 @@ export default function QuickAddSpending({
             className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
             role="dialog"
             aria-modal="true"
-            aria-label="Add spending"
+            aria-label="Add"
           >
             <div
               className="absolute inset-0 animate-fade-in bg-ink/40 backdrop-blur-sm"
@@ -122,7 +171,7 @@ export default function QuickAddSpending({
               />
               <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
                 <h2 className="font-display text-lg font-semibold tracking-tight">
-                  Add spending
+                  {TITLES[type]}
                 </h2>
                 <button
                   type="button"
@@ -148,50 +197,130 @@ export default function QuickAddSpending({
                     "calc(1.25rem + env(safe-area-inset-bottom, 0px))",
                 }}
               >
-                {/* Month picker — add to a different month than today (e.g. log
-                    end-of-June money against July's budget). */}
-                <div className="mb-4 flex items-center justify-between rounded-lg border border-line bg-paper px-2 py-2">
-                  <button
-                    type="button"
-                    onClick={() => setMonth((m) => shiftMonth(m, -1))}
-                    aria-label="Previous month"
-                    className="grid h-8 w-8 place-items-center rounded-md text-ink-soft hover:bg-surface hover:text-ink"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <div className="flex flex-col items-center leading-tight">
-                    <span className="text-sm font-medium text-ink">
-                      {monthLabel(month)}
-                    </span>
-                    {month !== monthKey() && (
-                      <span className="text-[0.7rem] text-teal-dark">
-                        adding to this month
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setMonth((m) => shiftMonth(m, 1))}
-                    aria-label="Next month"
-                    className="grid h-8 w-8 place-items-center rounded-md text-ink-soft hover:bg-surface hover:text-ink"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-                      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
+                {/* Type picker — morphs the form below. */}
+                <div className="mb-4 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                  {TYPES.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setType(t.key)}
+                      className={`rounded-md border px-2 py-2 text-xs font-medium leading-tight transition-colors ${
+                        type === t.key
+                          ? "border-teal bg-teal-tint text-teal-dark"
+                          : "border-line text-ink-soft hover:bg-paper"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
 
-                <ExpenseForm
-                  key={month}
-                  sharedCategories={sharedCategories}
-                  allowanceCategories={allowanceCategories}
-                  cards={cards}
-                  month={month}
-                  cutoffDay={cutoffDay}
-                  onSaved={handleSaved}
-                />
+                {type === "spending" && (
+                  <>
+                    {/* Month picker — log against a different month than today. */}
+                    <div className="mb-4 flex items-center justify-between rounded-lg border border-line bg-paper px-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setMonth((m) => shiftMonth(m, -1))}
+                        aria-label="Previous month"
+                        className="grid h-8 w-8 place-items-center rounded-md text-ink-soft hover:bg-surface hover:text-ink"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <div className="flex flex-col items-center leading-tight">
+                        <span className="text-sm font-medium text-ink">
+                          {monthLabel(month)}
+                        </span>
+                        {month !== monthKey() && (
+                          <span className="text-[0.7rem] text-teal-dark">
+                            adding to this month
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMonth((m) => shiftMonth(m, 1))}
+                        aria-label="Next month"
+                        className="grid h-8 w-8 place-items-center rounded-md text-ink-soft hover:bg-surface hover:text-ink"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    <ExpenseForm
+                      key={month}
+                      sharedCategories={sharedCategories}
+                      allowanceCategories={allowanceCategories}
+                      cards={cards}
+                      month={month}
+                      cutoffDay={cutoffDay}
+                      onSaved={handleSpendingSaved}
+                    />
+                  </>
+                )}
+
+                {type === "saving" && (
+                  <SavingsForm
+                    pots={pots}
+                    cutoffDay={cutoffDay}
+                    onSaved={() => done("Saved to savings.")}
+                  />
+                )}
+
+                {type === "installment" && (
+                  <InstallmentForm
+                    remainingCents={installmentRemaining}
+                    currentMonth={currentMonth}
+                    cards={cards.map((c) => ({
+                      id: c.id,
+                      label: c.label,
+                      last4: c.last4,
+                    }))}
+                    onSaved={() => done("Installment added.")}
+                  />
+                )}
+
+                {type === "subscription" && (
+                  <SubscriptionForm
+                    remainingCents={subscriptionRemaining}
+                    currentMonth={currentMonth}
+                    onSaved={() => done("Subscription added.")}
+                  />
+                )}
+
+                {type === "loan" &&
+                  (loans.length === 0 ? (
+                    <p className="rounded-md border border-line bg-paper px-4 py-3 text-sm text-ink-soft">
+                      Add a loan first, then record payments against it.
+                    </p>
+                  ) : (
+                    <div className="grid gap-3">
+                      <label className="grid gap-1 text-xs text-ink-soft">
+                        Which loan
+                        <select
+                          className="w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base focus:border-teal"
+                          value={loanId}
+                          onChange={(e) => setLoanId(Number(e.target.value))}
+                        >
+                          {loans.map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <LoanPaymentForm
+                        key={loanId}
+                        loanId={loanId}
+                        defaultAmount={loanDefault}
+                        onSaved={() => done("Payment recorded.")}
+                      />
+                    </div>
+                  ))}
               </div>
             </div>
           </div>,
