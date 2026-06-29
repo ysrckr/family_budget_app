@@ -227,6 +227,8 @@ export default async function Dashboard({
     savedInBudget;
   // What's left of income that hasn't been earmarked yet (can go negative).
   const unallocated = totalIncome - totalAllocated;
+  // Of everything earmarked, how much is still unspent (can go negative).
+  const remainingOfAllocated = totalAllocated - totalSpent;
 
   const left =
     totalIncome -
@@ -235,6 +237,8 @@ export default async function Dashboard({
     savedInBudget -
     installmentsCommitted -
     subscriptionsCommitted;
+  // The flip side of Left: everything already spent or committed this month.
+  const usedOfIncome = totalIncome - left;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
 
   // Trend: income (salary + extra) vs spent per billing month, last 6 months.
@@ -308,11 +312,19 @@ export default async function Dashboard({
             backValue={formatMoney(unallocated)}
             backAccent={unallocated < 0 ? "brick" : "teal"}
           />
-          <Stat label="Spent" value={formatMoney(totalSpent)} />
-          <Stat
-            label="Left to spend"
-            value={formatMoney(left)}
-            accent={left < 0 ? "brick" : "teal"}
+          <FlipStat
+            frontLabel="Spent"
+            frontValue={formatMoney(totalSpent)}
+            backLabel="Remaining"
+            backValue={formatMoney(remainingOfAllocated)}
+            backAccent={remainingOfAllocated < 0 ? "brick" : "teal"}
+          />
+          <FlipStat
+            frontLabel="Left to spend"
+            frontValue={formatMoney(left)}
+            frontAccent={left < 0 ? "brick" : "teal"}
+            backLabel="Used"
+            backValue={formatMoney(usedOfIncome)}
           />
         </section>
 

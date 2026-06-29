@@ -44,7 +44,7 @@ export default function RootLayout({
           height={4}
           shadow="0 0 10px #0E7C66, 0 0 5px #0E7C66"
           zIndex={2000}
-          showSpinner
+          showSpinner={false}
           crawlSpeed={150}
           speed={250}
         />
