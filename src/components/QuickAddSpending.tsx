@@ -7,6 +7,7 @@ import SavingsForm from "./SavingsForm";
 import InstallmentForm from "./InstallmentForm";
 import SubscriptionForm from "./SubscriptionForm";
 import LoanPaymentForm from "./LoanPaymentForm";
+import SetupNotice from "./SetupNotice";
 import { monthKey, monthLabel, shiftMonth } from "@/lib/money";
 
 type Cat = { id: number; name: string };
@@ -259,6 +260,7 @@ export default function QuickAddSpending({
                       month={month}
                       cutoffDay={cutoffDay}
                       onSaved={handleSpendingSaved}
+                      onNavigate={() => setOpen(false)}
                     />
                   </>
                 )}
@@ -268,6 +270,8 @@ export default function QuickAddSpending({
                     pots={pots}
                     cutoffDay={cutoffDay}
                     onSaved={() => done("Saved to savings.")}
+                    manageHref="/savings"
+                    onNavigate={() => setOpen(false)}
                   />
                 )}
 
@@ -294,9 +298,12 @@ export default function QuickAddSpending({
 
                 {type === "loan" &&
                   (loans.length === 0 ? (
-                    <p className="rounded-md border border-line bg-paper px-4 py-3 text-sm text-ink-soft">
-                      Add a loan first, then record payments against it.
-                    </p>
+                    <SetupNotice
+                      message="Add a loan first, then record payments against it."
+                      href="/loans"
+                      action="Go to Loans"
+                      onNavigate={() => setOpen(false)}
+                    />
                   ) : (
                     <div className="grid gap-3">
                       <label className="grid gap-1 text-xs text-ink-soft">

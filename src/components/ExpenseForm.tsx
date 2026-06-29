@@ -8,6 +8,7 @@ import {
   monthLabel,
   billingMonthFor,
 } from "@/lib/money";
+import SetupNotice from "./SetupNotice";
 
 const input =
   "w-full rounded-md border border-line bg-surface px-3 py-2.5 text-base placeholder:text-ink-soft/60 focus:border-teal";
@@ -30,6 +31,7 @@ export default function ExpenseForm({
   defaultCategoryId,
   edit,
   onSaved,
+  onNavigate,
 }: {
   sharedCategories: Cat[];
   allowanceCategories: AllowanceCat[];
@@ -52,6 +54,8 @@ export default function ExpenseForm({
   };
   // Called after a successful save (used by the quick-add sheet to close + toast).
   onSaved?: (info: { billingMonth: string; rolled: boolean }) => void;
+  // Called when a setup link is followed (lets the quick-add sheet close).
+  onNavigate?: () => void;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -167,9 +171,12 @@ export default function ExpenseForm({
 
   if (!hasCategories) {
     return (
-      <p className="rounded-md border border-line bg-paper px-4 py-3 text-sm text-ink-soft">
-        Create a budget category or an allowance first, then record spending.
-      </p>
+      <SetupNotice
+        message="Create a budget category or an allowance first, then record spending."
+        href="/budget"
+        action="Go to Budgets"
+        onNavigate={onNavigate}
+      />
     );
   }
 
