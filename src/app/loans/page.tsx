@@ -246,6 +246,7 @@ export default async function LoansPage({
                           method="PATCH"
                           body={{ id: l.id, archived: true }}
                           label="Archive loan"
+                          removesRow
                           className="inline-flex min-h-[40px] items-center rounded-md px-3 py-2 text-sm text-ink-soft hover:bg-paper hover:text-ink"
                         />
                         <DeleteButton
