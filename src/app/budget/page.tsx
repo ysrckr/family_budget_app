@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc, desc } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, budgets, salaries, fixedCosts } from "@/db/schema";
@@ -9,12 +10,18 @@ import {
   isMonthKey,
 } from "@/lib/money";
 import { effectiveBudgets, effectiveFixedCosts } from "@/lib/recurring";
-import { getCutoffDay } from "@/lib/settings";
+import {
+  getCutoffDay,
+  getInstallmentBudgetCents,
+  getSubscriptionBudgetCents,
+} from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import { CategoryForm, BudgetEditor } from "@/components/CategoryForm";
 import AllowanceForm from "@/components/AllowanceForm";
 import FixedCostForm from "@/components/FixedCostForm";
+import InstallmentBudgetForm from "@/components/InstallmentBudgetForm";
+import SubscriptionBudgetForm from "@/components/SubscriptionBudgetForm";
 import DeleteButton from "@/components/DeleteButton";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +36,14 @@ export default async function BudgetPage({
   const key = isMonthKey(sp.month) ? sp.month! : currentBudgetMonth(cutoffDay);
   const label = monthLabel(key);
 
-  const [cats, budgetRows, salaryRows, fixedRows] = await Promise.all([
+  const [
+    cats,
+    budgetRows,
+    salaryRows,
+    fixedRows,
+    installmentBudgetCents,
+    subscriptionBudgetCents,
+  ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
     db.select().from(salaries),
@@ -37,6 +51,8 @@ export default async function BudgetPage({
       .select()
       .from(fixedCosts)
       .orderBy(asc(fixedCosts.label), desc(fixedCosts.effectiveFrom)),
+    getInstallmentBudgetCents(),
+    getSubscriptionBudgetCents(),
   ]);
 
   const eff = effectiveBudgets(budgetRows, key);
@@ -225,6 +241,43 @@ export default async function BudgetPage({
             </ul>
           </div>
         )}
+
+        {/* Monthly limits for installments & subscriptions */}
+        <h2 className="mb-3 mt-10 font-display text-xl font-medium">
+          Installments &amp; subscriptions
+        </h2>
+        <p className="mb-3 text-sm text-ink-soft">
+          Set how much you&rsquo;ll commit each month. Both come out of
+          &ldquo;Left to spend&rdquo;; add and manage the items on their pages.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-card">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-display text-base font-medium">Installments</h3>
+              <Link
+                href="/installments"
+                className="text-sm text-teal underline-offset-2 hover:underline"
+              >
+                Manage →
+              </Link>
+            </div>
+            <InstallmentBudgetForm budgetCents={installmentBudgetCents} />
+          </div>
+          <div className="rounded-xl border border-line bg-surface p-5 shadow-card">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="font-display text-base font-medium">
+                Subscriptions
+              </h3>
+              <Link
+                href="/subscriptions"
+                className="text-sm text-teal underline-offset-2 hover:underline"
+              >
+                Manage →
+              </Link>
+            </div>
+            <SubscriptionBudgetForm budgetCents={subscriptionBudgetCents} />
+          </div>
+        </div>
       </main>
     </>
   );

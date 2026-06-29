@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { db } from "@/db";
 import { subscriptions } from "@/db/schema";
@@ -16,7 +17,6 @@ import {
 import { getCutoffDay, getSubscriptionBudgetCents } from "@/lib/settings";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
-import SubscriptionBudgetForm from "@/components/SubscriptionBudgetForm";
 import SubscriptionForm from "@/components/SubscriptionForm";
 import EditSubscriptionButton from "@/components/EditSubscriptionButton";
 import DeleteButton from "@/components/DeleteButton";
@@ -96,12 +96,16 @@ export default async function SubscriptionsPage({
           </div>
         </section>
 
-        <div className="rounded-xl border border-line bg-surface p-5 shadow-card">
-          <h2 className="mb-3 font-display text-base font-medium">
-            Monthly budget
-          </h2>
-          <SubscriptionBudgetForm budgetCents={budgetCents} />
-        </div>
+        <p className="text-sm text-ink-soft">
+          Set the monthly subscriptions budget on the{" "}
+          <Link
+            href="/budget"
+            className="text-teal underline-offset-2 hover:underline"
+          >
+            Budgets page
+          </Link>
+          .
+        </p>
 
         <h2 className="mb-3 mt-8 font-display text-xl font-medium">
           Add a subscription
