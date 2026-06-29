@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   todayISO,
@@ -41,6 +41,7 @@ export default function SavingsForm({
   onNavigate?: () => void;
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [potId, setPotId] = useState(edit?.potId ?? pots[0]?.id ?? 0);
   const [type, setType] = useState<"deposit" | "withdrawal">(
     edit?.txnType === "withdrawal" ? "withdrawal" : "deposit"
@@ -131,7 +132,7 @@ export default function SavingsForm({
       return;
     }
     if (edit) {
-      router.refresh();
+      startTransition(() => router.refresh());
       onSaved?.();
       return;
     }
@@ -140,7 +141,7 @@ export default function SavingsForm({
     setDate(todayISO());
     setFromBudget(false);
     setRecurring(false);
-    router.refresh();
+    startTransition(() => router.refresh());
     onSaved?.();
   }
 
@@ -274,11 +275,13 @@ export default function SavingsForm({
 
       <div>
         <button
-          disabled={busy}
+          disabled={busy || isPending}
           className="rounded-md bg-teal px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-dark disabled:opacity-60"
         >
-          {busy
-            ? "Saving…"
+          {busy || isPending
+            ? type === "withdrawal"
+              ? "Withdrawing…"
+              : "Saving…"
             : edit
             ? "Save changes"
             : type === "withdrawal"

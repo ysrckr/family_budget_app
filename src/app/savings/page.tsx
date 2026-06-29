@@ -258,6 +258,7 @@ export default async function SavingsPage({
                         body={{ id: p.id, archived: true }}
                         label="Archive"
                         busyLabel="…"
+                        removesRow
                         className="inline-flex min-h-[40px] items-center rounded-md px-3 py-2 text-sm text-ink-soft hover:bg-paper hover:text-ink"
                       />
                       <DeleteButton
