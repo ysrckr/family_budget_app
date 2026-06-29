@@ -107,7 +107,9 @@ export default function SavingsForm({
             potId,
             amount,
             inBudget,
-            startMonth: date.slice(0, 7),
+            // The budget-cycle month of the date (cutoff-aware), so a rule
+            // started after the cutoff counts from next month — not twice.
+            startMonth: billingMonthFor(date, cutoffDay),
           }),
         })
       : await fetch("/api/savings/txns", {
