@@ -14,6 +14,7 @@ import {
   loans,
   fixedCosts,
   installmentPlans,
+  subscriptions,
 } from "@/db/schema";
 import {
   formatMoney,
@@ -30,8 +31,13 @@ import {
   totalFixedCosts,
   effectiveLoanPayments,
 } from "@/lib/recurring";
-import { getCutoffDay, getInstallmentBudgetCents } from "@/lib/settings";
+import {
+  getCutoffDay,
+  getInstallmentBudgetCents,
+  getSubscriptionBudgetCents,
+} from "@/lib/settings";
 import { isActiveIn } from "@/lib/installments";
+import { monthlyCostCents, subActiveIn } from "@/lib/subscriptions";
 import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import SpendingChart from "@/components/SpendingChart";
@@ -71,6 +77,8 @@ export default async function Dashboard({
     installmentRows,
     installmentBudgetCents,
     recurringSavingRows,
+    subscriptionRows,
+    subscriptionBudgetCents,
   ] = await Promise.all([
     db.select().from(categories).orderBy(asc(categories.name)),
     db.select().from(budgets),
@@ -138,6 +146,8 @@ export default async function Dashboard({
       })
       .from(recurringSavings)
       .leftJoin(savingsPots, eq(recurringSavings.potId, savingsPots.id)),
+    db.select().from(subscriptions),
+    getSubscriptionBudgetCents(),
   ]);
 
   const effBudgets = effectiveBudgets(budgetRows, key);
@@ -199,8 +209,19 @@ export default async function Dashboard({
     .reduce((s, p) => s + p.monthlyPaymentCents, 0);
   const installmentsLeft = installmentBudgetCents - installmentsCommitted;
 
+  // Subscriptions due this month (monthly + yearly-smoothed) also reduce Left.
+  const subscriptionsCommitted = subscriptionRows
+    .filter((s) => subActiveIn(s.startMonth, key))
+    .reduce((sum, s) => sum + monthlyCostCents(s.amountCents, s.cycle), 0);
+  const subscriptionsLeft = subscriptionBudgetCents - subscriptionsCommitted;
+
   const left =
-    totalIncome - totalSpent - fixedTotal - savedInBudget - installmentsCommitted;
+    totalIncome -
+    totalSpent -
+    fixedTotal -
+    savedInBudget -
+    installmentsCommitted -
+    subscriptionsCommitted;
   const nothingSetUp = sharedItems.length === 0 && allowanceItems.length === 0;
 
   // Trend: income (salary + extra) vs spent per billing month, last 6 months.
@@ -232,6 +253,9 @@ export default async function Dashboard({
     installmentsCommitted > 0
       ? `${formatMoney(installmentsCommitted)} installments`
       : null,
+    subscriptionsCommitted > 0
+      ? `${formatMoney(subscriptionsCommitted)} subscriptions`
+      : null,
     savedInBudget > 0 ? `${formatMoney(savedInBudget)} saved from budget` : null,
   ].filter(Boolean) as string[];
   const outsideParts = [
@@ -239,6 +263,7 @@ export default async function Dashboard({
     loansDue > 0 ? `${formatMoney(loansDue)} loans due` : null,
   ].filter(Boolean) as string[];
   const showInstallmentsPlan = installmentBudgetCents > 0;
+  const showSubscriptionsPlan = subscriptionBudgetCents > 0;
 
   return (
     <>
@@ -274,7 +299,8 @@ export default async function Dashboard({
 
         {(takenOutParts.length > 0 ||
           outsideParts.length > 0 ||
-          showInstallmentsPlan) && (
+          showInstallmentsPlan ||
+          showSubscriptionsPlan) && (
           <div className="-mt-6 mb-8 space-y-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-xs shadow-card">
             {takenOutParts.length > 0 && (
               <p className="text-ink-soft">
@@ -296,6 +322,23 @@ export default async function Dashboard({
                   }`}
                 >
                   {formatMoney(installmentsLeft)} left
+                </span>
+              </p>
+            )}
+            {showSubscriptionsPlan && (
+              <p className="text-ink-soft">
+                Subscriptions budget:{" "}
+                <span className="num text-ink">
+                  {formatMoney(subscriptionsCommitted)} of{" "}
+                  {formatMoney(subscriptionBudgetCents)}
+                </span>{" "}
+                used ·{" "}
+                <span
+                  className={`num ${
+                    subscriptionsLeft < 0 ? "text-brick" : "text-teal-dark"
+                  }`}
+                >
+                  {formatMoney(subscriptionsLeft)} left
                 </span>
               </p>
             )}

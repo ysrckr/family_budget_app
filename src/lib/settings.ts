@@ -62,3 +62,31 @@ export async function setInstallmentBudgetCents(cents: number): Promise<void> {
     await db.insert(settings).values({ key: INSTALLMENT_BUDGET_KEY, value });
   }
 }
+
+export const SUBSCRIPTION_BUDGET_KEY = "subscription_budget"; // monthly, cents
+
+/** The household monthly subscriptions budget in cents (0 if unset). */
+export async function getSubscriptionBudgetCents(): Promise<number> {
+  const [row] = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, SUBSCRIPTION_BUDGET_KEY));
+  const n = row?.value ? parseInt(row.value, 10) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+export async function setSubscriptionBudgetCents(cents: number): Promise<void> {
+  const value = cents > 0 ? String(Math.round(cents)) : "";
+  const [existing] = await db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, SUBSCRIPTION_BUDGET_KEY));
+  if (existing) {
+    await db
+      .update(settings)
+      .set({ value })
+      .where(eq(settings.key, SUBSCRIPTION_BUDGET_KEY));
+  } else {
+    await db.insert(settings).values({ key: SUBSCRIPTION_BUDGET_KEY, value });
+  }
+}
