@@ -215,6 +215,16 @@ export default async function Dashboard({
     .reduce((sum, s) => sum + monthlyCostCents(s.amountCents, s.cycle), 0);
   const subscriptionsLeft = subscriptionBudgetCents - subscriptionsCommitted;
 
+  // Allocated = every commitment earmarked for the month: envelopes (shared +
+  // allowance) plus fixed costs, installments, subscriptions and in-budget
+  // savings. This is "how much of income is already spoken for".
+  const totalAllocated =
+    totalBudget +
+    fixedTotal +
+    installmentsCommitted +
+    subscriptionsCommitted +
+    savedInBudget;
+
   const left =
     totalIncome -
     totalSpent -
@@ -288,7 +298,7 @@ export default async function Dashboard({
 
         <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Income" value={formatMoney(totalIncome)} />
-          <Stat label="Allocated" value={formatMoney(totalBudget)} />
+          <Stat label="Allocated" value={formatMoney(totalAllocated)} />
           <Stat label="Spent" value={formatMoney(totalSpent)} />
           <Stat
             label="Left to spend"
