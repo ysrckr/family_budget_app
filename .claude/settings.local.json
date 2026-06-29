@@ -6,7 +6,10 @@
       "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/income)",
       "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/expenses)",
       "Bash(echo \"pages \\(307=ok, redirect\\): / $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/\\)  /income $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/income\\)  /expenses $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/expenses\\)\")",
-      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/settings -H 'Content-Type: application/json' -d '{\\\\\"cutoffDay\\\\\":25}')"
+      "Bash(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/api/settings -H 'Content-Type: application/json' -d '{\\\\\"cutoffDay\\\\\":25}')",
+      "Bash(lsof -tiTCP:3000 -sTCP:LISTEN)",
+      "Bash(xargs kill)",
+      "Bash(npm run *)"
     ]
   }
 }
