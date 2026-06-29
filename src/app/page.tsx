@@ -42,6 +42,7 @@ import TopBar from "@/components/TopBar";
 import MonthSwitcher from "@/components/MonthSwitcher";
 import SpendingChart from "@/components/SpendingChart";
 import SpendingTrend from "@/components/SpendingTrend";
+import FlipStat from "@/components/FlipStat";
 import EnvelopeCard from "@/components/EnvelopeCard";
 import AddCategory from "@/components/AddCategory";
 
@@ -224,6 +225,8 @@ export default async function Dashboard({
     installmentsCommitted +
     subscriptionsCommitted +
     savedInBudget;
+  // What's left of income that hasn't been earmarked yet (can go negative).
+  const unallocated = totalIncome - totalAllocated;
 
   const left =
     totalIncome -
@@ -298,7 +301,13 @@ export default async function Dashboard({
 
         <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Income" value={formatMoney(totalIncome)} />
-          <Stat label="Allocated" value={formatMoney(totalAllocated)} />
+          <FlipStat
+            frontLabel="Allocated"
+            frontValue={formatMoney(totalAllocated)}
+            backLabel="Unallocated"
+            backValue={formatMoney(unallocated)}
+            backAccent={unallocated < 0 ? "brick" : "teal"}
+          />
           <Stat label="Spent" value={formatMoney(totalSpent)} />
           <Stat
             label="Left to spend"
