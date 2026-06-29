@@ -84,7 +84,7 @@ export default async function ExpensesPage({
             href={historyHref}
             className="flex items-center justify-between rounded-xl border border-line bg-surface px-5 py-4 text-sm font-medium shadow-card hover:border-teal/50"
           >
-            <span>View spending history for {label}</span>
+            <span>View everything out of budget in {label}</span>
             <span aria-hidden className="text-teal">
               →
             </span>
