@@ -17,6 +17,7 @@ const links = [
   { href: "/savings", label: "Savings" },
   { href: "/loans", label: "Loans" },
   { href: "/installments", label: "Installments" },
+  { href: "/subscriptions", label: "Subscriptions" },
 ];
 
 export default async function TopBar({ active }: { active: string }) {

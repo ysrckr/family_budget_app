@@ -234,9 +234,22 @@ export const installmentPlans = pgTable("installment_plans", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// A recurring subscription. Monthly subs cost their amount each month; yearly
+// subs are smoothed into a monthly set-aside (amount / 12) so each month you
+// reserve enough to pay the annual bill when it renews.
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  label: text("label").notNull(),
+  amountCents: integer("amount_cents").notNull(),
+  cycle: text("cycle").notNull().default("monthly"), // "monthly" | "yearly"
+  startMonth: text("start_month").notNull(), // "YYYY-MM" first billing month
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Salary = typeof salaries.$inferSelect;
 export type FixedCost = typeof fixedCosts.$inferSelect;
+export type Subscription = typeof subscriptions.$inferSelect;
 export type InstallmentPlan = typeof installmentPlans.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
